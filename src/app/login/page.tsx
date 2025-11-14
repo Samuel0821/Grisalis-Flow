@@ -21,6 +21,8 @@ import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword } f
 import { Loader2, AlertTriangle, UserPlus } from 'lucide-react';
 import { createAuditLog, getAllUsers, UserProfile } from '@/lib/firebase/firestore';
 import { doc, setDoc, serverTimestamp, getFirestore } from 'firebase/firestore';
+import { errorEmitter } from '@/firebase/error-emitter';
+import { FirestorePermissionError } from '@/firebase/errors';
 
 
 export default function LoginPage() {
@@ -107,30 +109,51 @@ export default function LoginPage() {
 
       // 2. Create the user profile in Firestore with 'admin' role
       const userProfileRef = doc(getFirestore(), 'userProfiles', user.uid);
-      await setDoc(userProfileRef, {
+      const userProfileData = {
           id: user.uid,
           email: user.email,
           displayName: 'Admin Grisalis',
           role: 'admin',
           createdAt: serverTimestamp(),
-      });
+      };
       
-      await createAuditLog({
-        userId: user.uid,
-        userName: 'Admin Grisalis',
-        action: 'Initial admin user created',
-        entity: 'user',
-        entityId: user.uid,
-        details: { email: user.email },
-      });
+      // Use a non-blocking write with custom error handling
+      setDoc(userProfileRef, userProfileData)
+        .then(async () => {
+            await createAuditLog({
+                userId: user.uid,
+                userName: 'Admin Grisalis',
+                action: 'Initial admin user created',
+                entity: 'user',
+                entityId: user.uid,
+                details: { email: user.email },
+            });
 
-      toast({
-        title: '¡Administrador Creado!',
-        description: 'Tu usuario administrador ha sido configurado. Ahora puedes iniciar sesión.',
-      });
+            toast({
+                title: '¡Administrador Creado!',
+                description: 'Tu usuario administrador ha sido configurado. Ahora puedes iniciar sesión.',
+            });
 
-      // Refresh the check
-      setIsSetupNeeded(false);
+            setIsSetupNeeded(false); // Hide the setup button
+        })
+        .catch(async (serverError) => {
+            // Create the rich, contextual error
+            const permissionError = new FirestorePermissionError({
+                path: userProfileRef.path,
+                operation: 'create',
+                requestResourceData: userProfileData,
+            });
+            
+            // This is the crucial part: emit the detailed error
+            errorEmitter.emit('permission-error', permissionError);
+            
+            // We can still show a generic toast to the user
+            toast({
+                variant: 'destructive',
+                title: 'Error de Permisos',
+                description: 'No se pudo crear el perfil de administrador.',
+            });
+        });
 
     } catch (error: any) {
         if (error.code === 'auth/email-already-in-use') {
