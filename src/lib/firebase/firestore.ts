@@ -12,6 +12,8 @@ import {
   getDoc,
   doc,
   updateDoc,
+  orderBy,
+  Timestamp,
 } from 'firebase/firestore';
 import { getFirebaseApp } from './get-firebase-app';
 
@@ -57,6 +59,16 @@ export interface Bug extends DocumentData {
   reportedBy: string;
   createdAt: any;
   updatedAt: any;
+}
+
+export interface TimeLog extends DocumentData {
+    id?: string;
+    userId: string;
+    projectId: string;
+    taskId: string;
+    hours: number;
+    description: string;
+    date: Timestamp;
 }
 
 
@@ -165,6 +177,28 @@ export const getTasks = async (projectId: string): Promise<Task[]> => {
   }
 };
 
+
+/**
+ * Obtiene todas las tareas para multiples proyectos.
+ */
+export const getTasksForProjects = async (projectIds: string[]): Promise<Task[]> => {
+  if (projectIds.length === 0) {
+    return [];
+  }
+  try {
+    const q = query(collection(db, 'tasks'), where('projectId', 'in', projectIds));
+    const querySnapshot = await getDocs(q);
+    const tasks: Task[] = [];
+    querySnapshot.forEach((doc) => {
+      tasks.push({ id: doc.id, ...doc.data() } as Task);
+    });
+    return tasks;
+  } catch (error) {
+    console.error('Error getting tasks for projects: ', error);
+    throw new Error('Could not get tasks.');
+  }
+}
+
 /**
  * Actualiza el estado de una tarea.
  * @param taskId - El ID de la tarea a actualizar.
@@ -240,5 +274,44 @@ export const updateBugStatus = async (
   } catch (error) {
     console.error('Error updating bug status: ', error);
     throw new Error('Could not update the bug status.');
+  }
+};
+
+
+// ---- Funciones para Timesheet ----
+
+/**
+ * Crea un nuevo registro de tiempo en Firestore.
+ */
+export const createTimeLog = async (
+  timeLogData: Omit<TimeLog, 'id'>
+): Promise<TimeLog> => {
+  try {
+    const docRef = await addDoc(collection(db, 'timeLogs'), {
+      ...timeLogData,
+      date: serverTimestamp(),
+    });
+    return { id: docRef.id, ...timeLogData, date: new Timestamp(Date.now() / 1000, 0) };
+  } catch (error) {
+    console.error('Error creating time log: ', error);
+    throw new Error('Could not create the time log.');
+  }
+};
+
+/**
+ * Obtiene todos los registros de tiempo para un usuario específico.
+ */
+export const getTimeLogs = async (userId: string): Promise<TimeLog[]> => {
+  try {
+    const q = query(collection(db, 'timeLogs'), where('userId', '==', userId), orderBy('date', 'desc'));
+    const querySnapshot = await getDocs(q);
+    const timeLogs: TimeLog[] = [];
+    querySnapshot.forEach((doc) => {
+      timeLogs.push({ id: doc.id, ...doc.data() } as TimeLog);
+    });
+    return timeLogs;
+  } catch (error) {
+    console.error('Error getting time logs: ', error);
+    throw new Error('Could not get time logs.');
   }
 };
