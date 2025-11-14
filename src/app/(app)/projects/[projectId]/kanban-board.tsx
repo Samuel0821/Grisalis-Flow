@@ -224,7 +224,7 @@ function TaskDetailDialog({ task, isOpen, onOpenChange }: { task: Task | null; i
 }
 
 
-export function KanbanBoard({ projectId, initialTasks }: { projectId: string; initialTasks: Task[] }) {
+export function KanbanBoard({ projectId, initialTasks, onTaskCreated, onTaskStatusUpdated }: { projectId: string; initialTasks: Task[]; onTaskCreated: (task: Task) => void; onTaskStatusUpdated: (taskId: string, newStatus: TaskStatus) => void; }) {
   const { user } = useAuth();
   const { toast } = useToast();
   const [tasks, setTasks] = useState(initialTasks);
@@ -238,6 +238,10 @@ export function KanbanBoard({ projectId, initialTasks }: { projectId: string; in
   const [newTaskPriority, setNewTaskPriority] = useState<TaskPriority>('medium');
   
   const [isBrowser, setIsBrowser] = useState(false);
+  
+  useEffect(() => {
+    setTasks(initialTasks);
+  }, [initialTasks]);
 
   useEffect(() => {
     setIsBrowser(true);
@@ -246,10 +250,6 @@ export function KanbanBoard({ projectId, initialTasks }: { projectId: string; in
   const handleTaskClick = (task: Task) => {
     setSelectedTask(task);
     setIsDetailDialogOpen(true);
-  };
-
-  const handleTaskCreated = (newTask: Task) => {
-    setTasks((prevTasks) => [...prevTasks, newTask]);
   };
   
   const resetCreateForm = () => {
@@ -279,7 +279,7 @@ export function KanbanBoard({ projectId, initialTasks }: { projectId: string; in
         priority: newTaskPriority,
         createdBy: user.uid,
       }, { uid: user.uid, displayName: user.displayName });
-      handleTaskCreated(newTask);
+      onTaskCreated(newTask);
       toast({ title: 'Success!', description: 'Task created.' });
       resetCreateForm();
       setIsCreateDialogOpen(false);
@@ -309,10 +309,7 @@ export function KanbanBoard({ projectId, initialTasks }: { projectId: string; in
     const newStatus = destination.droppableId as Task['status'];
     
     // Optimistic UI update
-    const updatedTasks = tasks.map(t => 
-      t.id === draggableId ? { ...t, status: newStatus } : t
-    );
-    setTasks(updatedTasks);
+    onTaskStatusUpdated(draggableId, newStatus);
     
     try {
       await updateTaskStatus(draggableId, movedTask.title, newStatus, oldStatus, { uid: user.uid, displayName: user.displayName });
@@ -320,7 +317,7 @@ export function KanbanBoard({ projectId, initialTasks }: { projectId: string; in
       console.error(error);
       toast({ variant: 'destructive', title: 'Error updating task' });
       // Revert UI on failure
-      setTasks(tasks);
+      onTaskStatusUpdated(draggableId, oldStatus);
     }
   };
 
@@ -436,3 +433,4 @@ export function KanbanBoard({ projectId, initialTasks }: { projectId: string; in
     </DragDropContext>
   );
 }
+
