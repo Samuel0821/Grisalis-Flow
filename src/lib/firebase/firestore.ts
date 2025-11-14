@@ -96,6 +96,18 @@ export interface Sprint extends DocumentData {
   status: SprintStatus;
 }
 
+export type NotificationType = 'task_assigned' | 'status_changed' | 'bug_critical' | 'comment';
+
+export interface Notification extends DocumentData {
+    id: string;
+    userId: string; // The user who receives the notification
+    type: NotificationType;
+    message: string;
+    link: string; // e.g., /projects/pid/tasks/tid
+    read: boolean;
+    createdAt: Timestamp;
+}
+
 
 // ---- Funciones para Proyectos ----
 
@@ -498,5 +510,26 @@ export const getSprintsForProject = async (projectId: string): Promise<Sprint[]>
   } catch (error) {
     console.error('Error getting sprints: ', error);
     throw new Error('Could not get sprints.');
+  }
+};
+
+
+// ---- Funciones para Notificaciones ----
+
+/**
+ * Obtiene las notificaciones para un usuario específico.
+ */
+export const getNotifications = async (userId: string): Promise<Notification[]> => {
+  try {
+    const q = query(collection(db, 'notifications'), where('userId', '==', userId), orderBy('createdAt', 'desc'));
+    const querySnapshot = await getDocs(q);
+    const notifications: Notification[] = [];
+    querySnapshot.forEach((doc) => {
+      notifications.push({ id: doc.id, ...doc.data() } as Notification);
+    });
+    return notifications;
+  } catch (error) {
+    console.error('Error getting notifications: ', error);
+    throw new Error('Could not get notifications.');
   }
 };
