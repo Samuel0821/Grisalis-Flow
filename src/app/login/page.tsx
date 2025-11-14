@@ -109,11 +109,8 @@ export default function LoginPage() {
             </form>
           </CardContent>
           <CardFooter className="flex flex-col gap-4">
-            <div className="text-center text-sm">
-              ¿No tienes una cuenta?{' '}
-              <Link href="/signup" className="underline">
-                Regístrate
-              </Link>
+            <div className="text-center text-sm text-muted-foreground">
+              Contacta al administrador para obtener una cuenta.
             </div>
           </CardFooter>
         </Card>
