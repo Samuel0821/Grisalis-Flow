@@ -39,7 +39,7 @@ export default function NewWikiPage() {
         title,
         content,
         createdBy: user.uid,
-      });
+      }, { uid: user.uid, displayName: user.displayName });
       toast({ title: 'Success!', description: 'Wiki page created.' });
       router.push(`/wiki/${newPage.slug}`);
     } catch (error) {
@@ -85,7 +85,7 @@ export default function NewWikiPage() {
                 id="content"
                 placeholder="Write your article content here. Markdown is supported."
                 value={content}
-                onChange={(e) => setContent(e.g.target.value)}
+                onChange={(e) => setContent(e.target.value)}
                 disabled={isSubmitting}
                 required
                 rows={15}

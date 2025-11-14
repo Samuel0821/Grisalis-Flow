@@ -278,7 +278,7 @@ export function KanbanBoard({ projectId, initialTasks }: { projectId: string; in
         status: 'backlog',
         priority: newTaskPriority,
         createdBy: user.uid,
-      });
+      }, { uid: user.uid, displayName: user.displayName });
       handleTaskCreated(newTask);
       toast({ title: 'Success!', description: 'Task created.' });
       resetCreateForm();
@@ -303,8 +303,9 @@ export function KanbanBoard({ projectId, initialTasks }: { projectId: string; in
     }
     
     const movedTask = tasks.find(t => t.id === draggableId);
-    if (!movedTask) return;
+    if (!movedTask || !user) return;
 
+    const oldStatus = movedTask.status;
     const newStatus = destination.droppableId as Task['status'];
     
     // Optimistic UI update
@@ -314,7 +315,7 @@ export function KanbanBoard({ projectId, initialTasks }: { projectId: string; in
     setTasks(updatedTasks);
     
     try {
-      await updateTaskStatus(draggableId, newStatus);
+      await updateTaskStatus(draggableId, movedTask.title, newStatus, oldStatus, { uid: user.uid, displayName: user.displayName });
     } catch (error) {
       console.error(error);
       toast({ variant: 'destructive', title: 'Error updating task' });

@@ -117,7 +117,7 @@ export function BugTracker({
         severity,
         status: 'new',
         reportedBy: user.uid,
-      });
+      }, { uid: user.uid, displayName: user.displayName });
       onBugCreated(newBug); // Update parent state
       setBugs((prev) => [newBug, ...prev]); // Update local state
       toast({ title: 'Success!', description: 'The bug has been reported.' });
@@ -141,16 +141,17 @@ export function BugTracker({
   };
 
   const handleStatusChange = async (newStatus: BugStatus) => {
-    if (!selectedBug) return;
+    if (!selectedBug || !user) return;
 
     // Optimistic update
     const originalBugs = bugs;
+    const oldStatus = selectedBug.status;
     const updatedBugs = bugs.map(b => b.id === selectedBug.id ? { ...b, status: newStatus } : b);
     setBugs(updatedBugs);
     setSelectedBug(prev => prev ? { ...prev, status: newStatus } : null);
 
     try {
-      await updateBugStatus(selectedBug.id, newStatus);
+      await updateBugStatus(selectedBug.id, selectedBug.title, newStatus, oldStatus, { uid: user.uid, displayName: user.displayName });
       toast({ title: 'Success!', description: 'Bug status updated.' });
     } catch (error) {
       console.error('Error updating bug status:', error);

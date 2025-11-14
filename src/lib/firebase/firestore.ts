@@ -118,6 +118,46 @@ export interface Comment extends DocumentData {
   createdAt: Timestamp;
 }
 
+export interface AuditLog extends DocumentData {
+  id?: string;
+  userId: string;
+  userName: string;
+  action: string;
+  entity: 'project' | 'task' | 'bug' | 'sprint' | 'wiki';
+  entityId: string;
+  details: any;
+  timestamp: Timestamp;
+}
+
+
+// ---- Funciones de Auditoría ----
+export const createAuditLog = async (logData: Omit<AuditLog, 'id' | 'timestamp'>) => {
+    try {
+        await addDoc(collection(db, 'auditLogs'), {
+            ...logData,
+            timestamp: serverTimestamp(),
+        });
+    } catch (error) {
+        console.error("Error creating audit log:", error);
+        // Fail silently so we don't block user actions
+    }
+};
+
+export const getAuditLogs = async (): Promise<AuditLog[]> => {
+    try {
+        const q = query(collection(db, 'auditLogs'), orderBy('timestamp', 'desc'));
+        const querySnapshot = await getDocs(q);
+        const logs: AuditLog[] = [];
+        querySnapshot.forEach((doc) => {
+            logs.push({ id: doc.id, ...doc.data() } as AuditLog);
+        });
+        return logs;
+    } catch (error) {
+        console.error('Error getting audit logs:', error);
+        throw new Error('Could not get audit logs.');
+    }
+}
+
 
 // ---- Funciones para Proyectos ----
 
@@ -127,7 +167,8 @@ export interface Comment extends DocumentData {
  * @returns El objeto del proyecto con su ID.
  */
 export const createProject = async (
-  projectData: Omit<Project, 'id' | 'createdAt' | 'updatedAt' | 'slug'>
+  projectData: Omit<Project, 'id' | 'createdAt' | 'updatedAt' | 'slug'>,
+  user: { uid: string, displayName: string | null }
 ): Promise<Project> => {
   try {
     const slug = projectData.name.toLowerCase().replace(/\s+/g, '-').replace(/[^\w-]+/g, '');
@@ -138,6 +179,16 @@ export const createProject = async (
       updatedAt: serverTimestamp(),
       status: 'active'
     });
+
+    await createAuditLog({
+        userId: user.uid,
+        userName: user.displayName || 'Anonymous',
+        action: `Created project "${projectData.name}"`,
+        entity: 'project',
+        entityId: docRef.id,
+        details: projectData
+    });
+
     return { id: docRef.id, ...projectData, slug, createdAt: new Date(), updatedAt: new Date(), status: 'active' };
   } catch (error) {
     console.error('Error creating project: ', error);
@@ -192,13 +243,23 @@ export const getProject = async (projectId: string): Promise<Project | null> => 
  */
 export const updateProject = async (
   projectId: string,
-  projectData: Partial<Project>
+  projectData: Partial<Project>,
+  user: { uid: string, displayName: string | null }
 ): Promise<void> => {
   try {
     const projectRef = doc(db, 'projects', projectId);
     await updateDoc(projectRef, {
       ...projectData,
       updatedAt: serverTimestamp(),
+    });
+
+    await createAuditLog({
+        userId: user.uid,
+        userName: user.displayName || 'Anonymous',
+        action: `Updated project "${projectData.name}"`,
+        entity: 'project',
+        entityId: projectId,
+        details: projectData
     });
   } catch (error) {
     console.error('Error updating project: ', error);
@@ -209,7 +270,7 @@ export const updateProject = async (
 /**
  * Elimina un proyecto y todas sus tareas y bugs asociados.
  */
-export const deleteProject = async (projectId: string): Promise<void> => {
+export const deleteProject = async (projectId: string, projectName: string, user: { uid: string, displayName: string | null }): Promise<void> => {
   try {
     const batch = writeBatch(db);
 
@@ -239,6 +300,16 @@ export const deleteProject = async (projectId: string): Promise<void> => {
     });
 
     await batch.commit();
+
+    await createAuditLog({
+        userId: user.uid,
+        userName: user.displayName || 'Anonymous',
+        action: `Deleted project "${projectName}"`,
+        entity: 'project',
+        entityId: projectId,
+        details: { name: projectName }
+    });
+
   } catch (error) {
     console.error('Error deleting project and associated data: ', error);
     throw new Error('Could not delete the project.');
@@ -253,12 +324,21 @@ export const deleteProject = async (projectId: string): Promise<void> => {
  * Crea una nueva tarea en Firestore.
  */
 export const createTask = async (
-  taskData: Omit<Task, 'id' | 'createdAt'>
+  taskData: Omit<Task, 'id' | 'createdAt'>,
+  user: { uid: string, displayName: string | null }
 ): Promise<Task> => {
   try {
     const docRef = await addDoc(collection(db, 'tasks'), {
       ...taskData,
       createdAt: serverTimestamp(),
+    });
+     await createAuditLog({
+        userId: user.uid,
+        userName: user.displayName || 'Anonymous',
+        action: `Created task "${taskData.title}"`,
+        entity: 'task',
+        entityId: docRef.id,
+        details: { projectId: taskData.projectId, title: taskData.title }
     });
     return { id: docRef.id, ...taskData, createdAt: new Date() };
   } catch (error) {
@@ -314,11 +394,22 @@ export const getTasksForProjects = async (projectIds: string[]): Promise<Task[]>
  */
 export const updateTaskStatus = async (
   taskId: string,
-  status: Task['status']
+  taskTitle: string,
+  newStatus: Task['status'],
+  oldStatus: Task['status'],
+  user: { uid: string, displayName: string | null }
 ): Promise<void> => {
   try {
     const taskRef = doc(db, 'tasks', taskId);
-    await updateDoc(taskRef, { status });
+    await updateDoc(taskRef, { status: newStatus });
+     await createAuditLog({
+        userId: user.uid,
+        userName: user.displayName || 'Anonymous',
+        action: `Moved task "${taskTitle}" from ${oldStatus.replace('_', ' ')} to ${newStatus.replace('_', ' ')}`,
+        entity: 'task',
+        entityId: taskId,
+        details: { from: oldStatus, to: newStatus }
+    });
   } catch (error) {
     console.error('Error updating task status: ', error);
     throw new Error('Could not update the task status.');
@@ -332,13 +423,22 @@ export const updateTaskStatus = async (
  * Crea un nuevo bug en Firestore.
  */
 export const createBug = async (
-  bugData: Omit<Bug, 'id' | 'createdAt' | 'updatedAt'>
+  bugData: Omit<Bug, 'id' | 'createdAt' | 'updatedAt'>,
+  user: { uid: string, displayName: string | null }
 ): Promise<Bug> => {
   try {
     const docRef = await addDoc(collection(db, 'bugs'), {
       ...bugData,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
+    });
+    await createAuditLog({
+        userId: user.uid,
+        userName: user.displayName || 'Anonymous',
+        action: `Reported bug "${bugData.title}"`,
+        entity: 'bug',
+        entityId: docRef.id,
+        details: { projectId: bugData.projectId, title: bugData.title }
     });
     const newBug = { id: docRef.id, ...bugData, createdAt: new Date(), updatedAt: new Date() };
     return newBug as Bug;
@@ -371,13 +471,24 @@ export const getBugs = async (): Promise<Bug[]> => {
  */
 export const updateBugStatus = async (
   bugId: string,
-  status: BugStatus
+  bugTitle: string,
+  newStatus: BugStatus,
+  oldStatus: BugStatus,
+  user: { uid: string, displayName: string | null }
 ): Promise<void> => {
   try {
     const bugRef = doc(db, 'bugs', bugId);
     await updateDoc(bugRef, {
-      status,
+      status: newStatus,
       updatedAt: serverTimestamp(),
+    });
+    await createAuditLog({
+        userId: user.uid,
+        userName: user.displayName || 'Anonymous',
+        action: `Changed status of bug "${bugTitle}" from ${oldStatus.replace('_', ' ')} to ${newStatus.replace('_', ' ')}`,
+        entity: 'bug',
+        entityId: bugId,
+        details: { from: oldStatus, to: newStatus }
     });
   } catch (error) {
     console.error('Error updating bug status: ', error);
@@ -431,7 +542,8 @@ export const getTimeLogs = async (userId: string): Promise<TimeLog[]> => {
  * Crea una nueva página de Wiki.
  */
 export const createWikiPage = async (
-  pageData: Omit<WikiPage, 'id' | 'createdAt' | 'updatedAt' | 'slug'>
+  pageData: Omit<WikiPage, 'id' | 'createdAt' | 'updatedAt' | 'slug'>,
+  user: { uid: string, displayName: string | null }
 ): Promise<WikiPage> => {
   try {
     const slug = pageData.title.toLowerCase().replace(/\s+/g, '-').replace(/[^\w-]+/g, '');
@@ -442,6 +554,15 @@ export const createWikiPage = async (
       updatedAt: serverTimestamp(),
     });
     
+    await createAuditLog({
+        userId: user.uid,
+        userName: user.displayName || 'Anonymous',
+        action: `Created wiki article "${pageData.title}"`,
+        entity: 'wiki',
+        entityId: docRef.id,
+        details: {}
+    });
+
     const docSnap = await getDoc(docRef);
     return { id: docRef.id, ...docSnap.data() } as WikiPage;
   } catch (error) {
@@ -493,10 +614,19 @@ export const getWikiPageBySlug = async (slug: string): Promise<WikiPage | null> 
  * Crea un nuevo sprint.
  */
 export const createSprint = async (
-  sprintData: Omit<Sprint, 'id'>
+  sprintData: Omit<Sprint, 'id'>,
+  user: { uid: string, displayName: string | null }
 ): Promise<Sprint> => {
   try {
     const docRef = await addDoc(collection(db, 'sprints'), sprintData);
+     await createAuditLog({
+        userId: user.uid,
+        userName: user.displayName || 'Anonymous',
+        action: `Created sprint "${sprintData.name}"`,
+        entity: 'sprint',
+        entityId: docRef.id,
+        details: { projectId: sprintData.projectId }
+    });
     const docSnap = await getDoc(docRef);
     return { id: docRef.id, ...docSnap.data() } as Sprint;
   } catch (error) {

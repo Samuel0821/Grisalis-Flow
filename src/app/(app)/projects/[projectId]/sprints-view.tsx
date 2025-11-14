@@ -27,7 +27,7 @@ import { DateRange } from 'react-day-picker';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 
-const statusBadges: Record<SprintStatus, 'default' | 'secondary' | 'destructive'> = {
+const statusBadges: Record<SprintStatus, 'default' | 'secondary' | 'outline'> = {
   planning: 'secondary',
   active: 'default',
   completed: 'outline',
@@ -76,7 +76,7 @@ export function SprintsView({
         startDate: dateRange.from,
         endDate: dateRange.to,
         status: 'planning',
-      });
+      }, { uid: user.uid, displayName: user.displayName });
       onSprintCreated(newSprint);
       setSprints((prev) => [...prev, newSprint]);
       toast({ title: 'Success!', description: 'Sprint created.' });

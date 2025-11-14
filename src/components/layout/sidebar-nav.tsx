@@ -1,3 +1,4 @@
+
 'use client';
 
 import {
@@ -6,10 +7,10 @@ import {
   Clock,
   BookText,
   LayoutGrid,
-  ListTodo,
   Sparkles,
   Settings,
   BarChart,
+  ShieldCheck,
 } from 'lucide-react';
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
@@ -33,6 +34,7 @@ const navItems = [
   { href: '/reports', icon: BarChart, label: 'Reports' },
   { href: '/wiki', icon: BookText, label: 'Wiki' },
   { href: '/summarizer', icon: Sparkles, label: 'AI Summarizer' },
+  { href: '/audit', icon: ShieldCheck, label: 'Audit Log' },
 ];
 
 export function SidebarNav() {

@@ -51,7 +51,6 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
 
 export default function ProjectsPage() {
@@ -109,7 +108,7 @@ export default function ProjectsPage() {
         name: projectName,
         description: projectDescription,
         createdBy: user.uid,
-      });
+      }, { uid: user.uid, displayName: user.displayName });
       setProjects((prev) => [...prev, newProject]);
       toast({ title: 'Success!', description: `Project "${projectName}" created.` });
       resetForm();
@@ -128,7 +127,7 @@ export default function ProjectsPage() {
 
       setIsSubmitting(true);
       try {
-          await updateProject(currentProject.id!, { name: projectName, description: projectDescription });
+          await updateProject(currentProject.id!, { name: projectName, description: projectDescription }, { uid: user.uid, displayName: user.displayName });
           setProjects(prev => prev.map(p => p.id === currentProject.id ? {...p, name: projectName, description: projectDescription} : p));
           toast({ title: 'Success!', description: `Project "${projectName}" updated.` });
           resetForm();
@@ -145,7 +144,7 @@ export default function ProjectsPage() {
       if (!user || !currentProject) return;
 
       try {
-          await deleteProject(currentProject.id!);
+          await deleteProject(currentProject.id!, currentProject.name, { uid: user.uid, displayName: user.displayName });
           setProjects(prev => prev.filter(p => p.id !== currentProject.id));
           toast({ title: 'Success!', description: `Project "${currentProject.name}" deleted.`});
           resetForm();
