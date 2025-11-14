@@ -1,63 +1,25 @@
 'use client';
 
 import {
-  createContext,
-  useContext,
-  useState,
-  useEffect,
   ReactNode,
+  useEffect,
 } from 'react';
-import { User } from 'firebase/auth';
-import { listenToAuthChanges } from '@/lib/firebase/auth';
 import { usePathname, useRouter } from 'next/navigation';
 import { Loader2 } from 'lucide-react';
-
-interface AuthContextType {
-  user: User | null;
-  loading: boolean;
-}
-
-const AuthContext = createContext<AuthContextType>({
-  user: null,
-  loading: true,
-});
-
-export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const unsubscribe = listenToAuthChanges((user) => {
-      setUser(user);
-      setLoading(false);
-    });
-
-    return () => unsubscribe();
-  }, []);
-
-  return (
-    <AuthContext.Provider value={{ user, loading }}>
-      {children}
-    </AuthContext.Provider>
-  );
-}
-
-export const useAuth = () => {
-  return useContext(AuthContext);
-};
+import { useUser } from '@/firebase';
 
 export function ProtectedRoute({ children }: { children: ReactNode }) {
-  const { user, loading } = useAuth();
+  const { user, isUserLoading } = useUser();
   const router = useRouter();
   const pathname = usePathname();
 
   useEffect(() => {
-    if (!loading && !user && pathname !== '/login') {
+    if (!isUserLoading && !user && pathname !== '/login') {
       router.push('/login');
     }
-  }, [user, loading, router, pathname]);
+  }, [user, isUserLoading, router, pathname]);
 
-  if (loading) {
+  if (isUserLoading) {
     return (
       <div className="flex h-screen w-full items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin" />
@@ -65,9 +27,18 @@ export function ProtectedRoute({ children }: { children: ReactNode }) {
     );
   }
 
+  // If we have a user, we can render the app.
+  // The redirect logic inside useEffect will handle unauthenticated users.
   if (user) {
+     return <>{children}</>;
+  }
+
+  // If there's no user and we are on the login page, allow rendering.
+  if (!user && pathname === '/login') {
     return <>{children}</>;
   }
 
   return null;
 }
+
+    

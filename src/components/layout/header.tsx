@@ -18,9 +18,9 @@ import { Button } from '@/components/ui/button';
 import { Bell, Search } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
-import { signOut } from '@/lib/firebase/auth';
+import { getAuth } from 'firebase/auth';
 import { useRouter } from 'next/navigation';
-import { useAuth } from '@/hooks/use-auth';
+import { useUser } from '@/firebase';
 import Link from 'next/link';
 import { Badge } from '@/components/ui/badge';
 
@@ -65,11 +65,11 @@ function NotificationPanel() {
 const userAvatar = PlaceHolderImages.find((p) => p.id === 'user-avatar');
 
 export function Header() {
-  const { user } = useAuth();
+  const { user } = useUser();
   const router = useRouter();
 
   const handleLogout = async () => {
-    await signOut();
+    await getAuth().signOut();
     router.push('/login');
   };
 
@@ -113,3 +113,5 @@ export function Header() {
     </header>
   );
 }
+
+    

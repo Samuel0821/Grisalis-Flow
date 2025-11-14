@@ -16,7 +16,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { signIn } from '@/lib/firebase/auth';
+import { getAuth, signInWithEmailAndPassword } from 'firebase/auth';
 import { Loader2 } from 'lucide-react';
 
 export default function LoginPage() {
@@ -30,7 +30,7 @@ export default function LoginPage() {
     e.preventDefault();
     setIsLoading(true);
     try {
-      await signIn(email, password);
+      await signInWithEmailAndPassword(getAuth(), email, password);
       toast({
         title: '¡Bienvenido!',
         description: 'Has iniciado sesión correctamente.',
@@ -118,3 +118,5 @@ export default function LoginPage() {
     </main>
   );
 }
+
+    

@@ -18,10 +18,18 @@ import {
   writeBatch,
   onSnapshot
 } from 'firebase/firestore';
-import { getFirebaseApp } from './get-firebase-app';
+import { initializeFirebase } from '@/firebase';
 
-const app = getFirebaseApp();
-const db = getFirestore(app);
+const { firestore: db } = initializeFirebase();
+
+
+export interface UserProfile {
+  email: string;
+  displayName?: string;
+  role: 'admin' | 'member';
+  createdAt: Timestamp;
+}
+
 
 // Tipos de datos
 export interface Project extends DocumentData {
@@ -123,7 +131,7 @@ export interface AuditLog extends DocumentData {
   userId: string;
   userName: string;
   action: string;
-  entity: 'project' | 'task' | 'bug' | 'sprint' | 'wiki';
+  entity: 'project' | 'task' | 'bug' | 'sprint' | 'wiki' | 'user';
   entityId: string;
   details: any;
   timestamp: Timestamp;
@@ -714,3 +722,5 @@ export const getComments = (taskId: string, callback: (comments: Comment[]) => v
 
     return unsubscribe;
 }
+
+    

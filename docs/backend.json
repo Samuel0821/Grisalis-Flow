@@ -1,5 +1,40 @@
 {
   "entities": {
+    "UserProfile": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "User Profile",
+      "description": "Extends the base Firebase Auth user with application-specific data like roles.",
+      "type": "object",
+      "properties": {
+        "email": {
+          "type": "string",
+          "description": "User's email address.",
+          "format": "email"
+        },
+        "displayName": {
+          "type": "string",
+          "description": "User's public display name."
+        },
+        "role": {
+          "type": "string",
+          "description": "The authorization role of the user.",
+          "enum": [
+            "admin",
+            "member"
+          ]
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp when the user profile was created."
+        }
+      },
+      "required": [
+        "email",
+        "role",
+        "createdAt"
+      ]
+    },
     "User": {
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "User",
@@ -616,260 +651,85 @@
     ]
   },
   "firestore": {
-    "structure": [
-      {
-        "path": "/users/{userId}",
-        "definition": {
-          "entityName": "User",
-          "schema": {
-            "$ref": "#/backend/entities/User"
-          },
-          "description": "Stores user profile information.  Path-based ownership for private user data.",
-          "params": [
-            {
-              "name": "userId",
-              "description": "The unique identifier for the user."
-            }
-          ]
-        }
+    "/userProfiles/{userId}": {
+      "schema": {
+        "$ref": "#/entities/UserProfile"
       },
-      {
-        "path": "/projects/{projectId}",
-        "definition": {
-          "entityName": "Project",
-          "schema": {
-            "$ref": "#/backend/entities/Project"
-          },
-          "description": "Stores project information.",
-          "params": [
-            {
-              "name": "projectId",
-              "description": "The unique identifier for the project."
-            }
-          ]
-        }
+      "description": "Stores application-specific user data, including roles."
+    },
+    "/projects/{projectId}": {
+      "schema": {
+        "$ref": "#/entities/Project"
       },
-      {
-        "path": "/projects/{projectId}/members/{projectMemberId}",
-        "definition": {
-          "entityName": "ProjectMember",
-          "schema": {
-            "$ref": "#/backend/entities/ProjectMember"
-          },
-          "description": "Stores project member information.",
-          "params": [
-            {
-              "name": "projectId",
-              "description": "The unique identifier for the project."
-            },
-            {
-              "name": "projectMemberId",
-              "description": "The unique identifier for the project member."
-            }
-          ]
-        }
+      "description": "Stores project information."
+    },
+    "/projects/{projectId}/members/{memberId}": {
+      "schema": {
+        "$ref": "#/entities/ProjectMember"
       },
-      {
-        "path": "/projects/{projectId}/tasks/{taskId}",
-        "definition": {
-          "entityName": "Task",
-          "schema": {
-            "$ref": "#/backend/entities/Task"
-          },
-          "description": "Stores task information within a project.",
-          "params": [
-            {
-              "name": "projectId",
-              "description": "The unique identifier for the project."
-            },
-            {
-              "name": "taskId",
-              "description": "The unique identifier for the task."
-            }
-          ]
-        }
+      "description": "Associates users with projects."
+    },
+    "/projects/{projectId}/tasks/{taskId}": {
+      "schema": {
+        "$ref": "#/entities/Task"
       },
-      {
-        "path": "/projects/{projectId}/sprints/{sprintId}",
-        "definition": {
-          "entityName": "Sprint",
-          "schema": {
-            "$ref": "#/backend/entities/Sprint"
-          },
-          "description": "Stores sprint information within a project.",
-          "params": [
-            {
-              "name": "projectId",
-              "description": "The unique identifier for the project."
-            },
-            {
-              "name": "sprintId",
-              "description": "The unique identifier for the sprint."
-            }
-          ]
-        }
+      "description": "Stores tasks within a project."
+    },
+    "/projects/{projectId}/tasks/{taskId}/comments/{commentId}": {
+      "schema": {
+        "$ref": "#/entities/TaskComment"
       },
-      {
-        "path": "/projects/{projectId}/tasks/{taskId}/subtasks/{subtaskId}",
-        "definition": {
-          "entityName": "Subtask",
-          "schema": {
-            "$ref": "#/backend/entities/Subtask"
-          },
-          "description": "Stores subtask information for a task.",
-          "params": [
-            {
-              "name": "projectId",
-              "description": "The unique identifier for the project."
-            },
-            {
-              "name": "taskId",
-              "description": "The unique identifier for the task."
-            },
-            {
-              "name": "subtaskId",
-              "description": "The unique identifier for the subtask."
-            }
-          ]
-        }
+      "description": "Stores comments on tasks."
+    },
+    "/projects/{projectId}/tasks/{taskId}/attachments/{attachmentId}": {
+      "schema": {
+        "$ref": "#/entities/Attachment"
       },
-      {
-        "path": "/projects/{projectId}/tasks/{taskId}/comments/{taskCommentId}",
-        "definition": {
-          "entityName": "TaskComment",
-          "schema": {
-            "$ref": "#/backend/entities/TaskComment"
-          },
-          "description": "Stores comments for a task.",
-          "params": [
-            {
-              "name": "projectId",
-              "description": "The unique identifier for the project."
-            },
-            {
-              "name": "taskId",
-              "description": "The unique identifier for the task."
-            },
-            {
-              "name": "taskCommentId",
-              "description": "The unique identifier for the task comment."
-            }
-          ]
-        }
+      "description": "Stores attachments for tasks."
+    },
+    "/projects/{projectId}/tasks/{taskId}/subtasks/{subtaskId}": {
+      "schema": {
+        "$ref": "#/entities/Subtask"
       },
-      {
-        "path": "/projects/{projectId}/tasks/{taskId}/attachments/{attachmentId}",
-        "definition": {
-          "entityName": "Attachment",
-          "schema": {
-            "$ref": "#/backend/entities/Attachment"
-          },
-          "description": "Stores attachments for a task.",
-          "params": [
-            {
-              "name": "projectId",
-              "description": "The unique identifier for the project."
-            },
-            {
-              "name": "taskId",
-              "description": "The unique identifier for the task."
-            },
-            {
-              "name": "attachmentId",
-              "description": "The unique identifier for the attachment."
-            }
-          ]
-        }
+      "description": "Stores subtasks within a task."
+    },
+    "/projects/{projectId}/sprints/{sprintId}": {
+      "schema": {
+        "$ref": "#/entities/Sprint"
       },
-      {
-        "path": "/projects/{projectId}/bugs/{bugId}",
-        "definition": {
-          "entityName": "Bug",
-          "schema": {
-            "$ref": "#/backend/entities/Bug"
-          },
-          "description": "Stores bug information within a project.",
-          "params": [
-            {
-              "name": "projectId",
-              "description": "The unique identifier for the project."
-            },
-            {
-              "name": "bugId",
-              "description": "The unique identifier for the bug."
-            }
-          ]
-        }
+      "description": "Stores sprints within a project."
+    },
+    "/projects/{projectId}/bugs/{bugId}": {
+      "schema": {
+        "$ref": "#/entities/Bug"
       },
-      {
-        "path": "/time_entries/{timeEntryId}",
-        "definition": {
-          "entityName": "TimeEntry",
-          "schema": {
-            "$ref": "#/backend/entities/TimeEntry"
-          },
-          "description": "Stores time entry information.",
-          "params": [
-            {
-              "name": "timeEntryId",
-              "description": "The unique identifier for the time entry."
-            }
-          ]
-        }
+      "description": "Stores bug reports for a project."
+    },
+    "/timeEntries/{timeEntryId}": {
+      "schema": {
+        "$ref": "#/entities/TimeEntry"
       },
-      {
-        "path": "/wiki_pages/{wikiPageId}",
-        "definition": {
-          "entityName": "WikiPage",
-          "schema": {
-            "$ref": "#/backend/entities/WikiPage"
-          },
-          "description": "Stores wiki page information.",
-          "params": [
-            {
-              "name": "wikiPageId",
-              "description": "The unique identifier for the wiki page."
-            }
-          ]
-        }
+      "description": "Stores time entries for tasks."
+    },
+    "/wiki/{wikiPageId}": {
+      "schema": {
+        "$ref": "#/entities/WikiPage"
       },
-      {
-        "path": "/users/{userId}/notifications/{notificationId}",
-        "definition": {
-          "entityName": "Notification",
-          "schema": {
-            "$ref": "#/backend/entities/Notification"
-          },
-          "description": "Stores notification information for a specific user.",
-          "params": [
-            {
-              "name": "userId",
-              "description": "The unique identifier for the user."
-            },
-            {
-              "name": "notificationId",
-              "description": "The unique identifier for the notification."
-            }
-          ]
-        }
+      "description": "Stores wiki pages."
+    },
+    "/users/{userId}/notifications/{notificationId}": {
+      "schema": {
+        "$ref": "#/entities/Notification"
       },
-      {
-        "path": "/audit_logs/{auditLogId}",
-        "definition": {
-          "entityName": "AuditLog",
-          "schema": {
-            "$ref": "#/backend/entities/AuditLog"
-          },
-          "description": "Stores audit log information.",
-          "params": [
-            {
-              "name": "auditLogId",
-              "description": "The unique identifier for the audit log."
-            }
-          ]
-        }
-      }
-    ],
-    "reasoning": "Given the requirement for a system without explicit roles (all users have the same permissions), a straightforward Firestore structure is recommended.  Authorization is simplified as any authenticated user has the same access rights. This design emphasizes structural segregation, ensuring each collection's security posture is homogenous.  \n\n*   **Authorization Independence:** Since all users have the same permissions, no denormalization is required. Access is based solely on authentication.\n*   **QAPs:** The structure enables secure `list` operations, because every document in the collection shares the same security requirements, no extra filtering is needed in rules.\n*   **Audit Logs:** Audit logs should be stored separately to prevent unauthorized read/write of the log information. Since it is intended for admin activity and not end-user, no user based segregation is created.\n*   **User Data:** Private data for each user (notifications) are stored in paths owned by the user."
+      "description": "Stores user-specific notifications."
+    },
+    "/auditLogs/{auditLogId}": {
+      "schema": {
+        "$ref": "#/entities/AuditLog"
+      },
+      "description": "Stores audit logs for important system events."
+    }
   }
 }
+
+    
