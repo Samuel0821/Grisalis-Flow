@@ -33,9 +33,11 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { createBug, updateBugStatus, Bug, Project, BugPriority, BugStatus, BugSeverity } from '@/lib/firebase/firestore';
 import { useAuth } from '@/hooks/use-auth';
-import { Loader2, PlusCircle } from 'lucide-react';
+import { Loader2, PlusCircle, Link as LinkIcon, ExternalLink } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { formatDistanceToNow } from 'date-fns';
+import Image from 'next/image';
+import Link from 'next/link';
 
 const priorityBadges: Record<BugPriority, 'destructive' | 'secondary' | 'outline' | 'default'> = {
   critical: 'destructive',
@@ -82,6 +84,7 @@ export function BugTracker({
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [reproductionSteps, setReproductionSteps] = useState('');
+  const [evidenceUrl, setEvidenceUrl] = useState('');
   const [projectId, setProjectId] = useState('');
   const [priority, setPriority] = useState<BugPriority>('medium');
   const [severity, setSeverity] = useState<BugSeverity>('medium');
@@ -90,6 +93,7 @@ export function BugTracker({
     setTitle('');
     setDescription('');
     setReproductionSteps('');
+    setEvidenceUrl('');
     setProjectId('');
     setPriority('medium');
     setSeverity('medium');
@@ -112,6 +116,7 @@ export function BugTracker({
         title,
         description,
         reproductionSteps,
+        evidenceUrl,
         projectId,
         priority,
         severity,
@@ -164,6 +169,10 @@ export function BugTracker({
       });
     }
   };
+
+  const isImageUrl = (url: string) => {
+    return /\.(jpg|jpeg|png|gif|webp)$/.test(url);
+  }
 
   return (
     <div className="space-y-4">
@@ -224,6 +233,22 @@ export function BugTracker({
                     disabled={isSubmitting}
                     rows={5}
                   />
+                </div>
+                 <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="evidence" className="text-right">
+                    Evidence URL
+                  </Label>
+                  <div className="col-span-3 flex items-center gap-2">
+                     <LinkIcon className="h-4 w-4 text-muted-foreground" />
+                     <Input
+                        id="evidence"
+                        value={evidenceUrl}
+                        onChange={(e) => setEvidenceUrl(e.target.value)}
+                        className="flex-1"
+                        placeholder="https://example.com/screenshot.png"
+                        disabled={isSubmitting}
+                    />
+                  </div>
                 </div>
                 <div className="grid grid-cols-4 items-center gap-4">
                   <Label htmlFor="project" className="text-right">
@@ -368,6 +393,21 @@ export function BugTracker({
                       )}
                     </div>
                 </div>
+                
+                {selectedBug.evidenceUrl && (
+                    <div className="text-sm">
+                        <p className="font-semibold text-foreground mb-1">Evidence</p>
+                         {isImageUrl(selectedBug.evidenceUrl) ? (
+                            <div className="p-2 border rounded-md">
+                                <Image src={selectedBug.evidenceUrl} alt="Evidence for bug" width={500} height={300} className="rounded-md object-contain" />
+                            </div>
+                        ) : (
+                             <Link href={selectedBug.evidenceUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-primary hover:underline">
+                                View Evidence <ExternalLink className="h-4 w-4"/>
+                             </Link>
+                        )}
+                    </div>
+                )}
 
                 <div className="grid grid-cols-3 gap-4">
                   <div>
@@ -409,3 +449,5 @@ export function BugTracker({
     </div>
   );
 }
+
+    

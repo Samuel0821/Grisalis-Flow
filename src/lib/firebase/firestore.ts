@@ -73,6 +73,7 @@ export interface Bug extends DocumentData {
   status: BugStatus;
   priority: BugPriority;
   severity: BugSeverity;
+  evidenceUrl?: string;
   reportedBy: string;
   createdAt: any;
   updatedAt: any;
@@ -930,3 +931,5 @@ export const getComments = (taskId: string, callback: (comments: Comment[]) => v
 
     return unsubscribe;
 }
+
+    

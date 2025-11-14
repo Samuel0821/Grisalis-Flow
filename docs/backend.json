@@ -270,6 +270,11 @@
           "type": "string",
           "description": "Steps to reproduce the bug."
         },
+        "evidenceUrl": {
+          "type": "string",
+          "description": "URL to an image or video showing the bug.",
+          "format": "uri"
+        },
         "reportedBy": {
             "type": "string",
             "description": "User ID of the user who reported the bug."
