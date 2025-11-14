@@ -12,6 +12,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
+  DialogClose
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -22,11 +23,36 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
+  CardFooter,
 } from '@/components/ui/card';
-import { createProject, getProjects, Project } from '@/lib/firebase/firestore';
+import {
+  createProject,
+  getProjects,
+  updateProject,
+  deleteProject,
+  Project,
+} from '@/lib/firebase/firestore';
 import { useAuth } from '@/hooks/use-auth';
-import { Loader2, PlusCircle } from 'lucide-react';
+import { Loader2, PlusCircle, Edit, Trash2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { MoreHorizontal } from 'lucide-react';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
 
 export default function ProjectsPage() {
   const { user } = useAuth();
@@ -34,10 +60,16 @@ export default function ProjectsPage() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
-
-  const [newProjectName, setNewProjectName] = useState('');
-  const [newProjectDescription, setNewProjectDescription] = useState('');
+  
+  // State for dialogs
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  
+  // State for forms
+  const [currentProject, setCurrentProject] = useState<Project | null>(null);
+  const [projectName, setProjectName] = useState('');
+  const [projectDescription, setProjectDescription] = useState('');
 
   useEffect(() => {
     if (user) {
@@ -50,8 +82,8 @@ export default function ProjectsPage() {
           console.error('Error fetching projects:', error);
           toast({
             variant: 'destructive',
-            title: 'Error al cargar proyectos',
-            description: 'No se pudieron cargar los proyectos. Inténtalo de nuevo.',
+            title: 'Error loading projects',
+            description: 'Could not load projects. Please try again.',
           });
         } finally {
           setIsLoading(false);
@@ -60,115 +92,139 @@ export default function ProjectsPage() {
       fetchProjects();
     }
   }, [user, toast]);
+  
+  const resetForm = () => {
+      setProjectName('');
+      setProjectDescription('');
+      setCurrentProject(null);
+  }
 
   const handleCreateProject = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user) {
-      toast({
-        variant: 'destructive',
-        title: 'No autenticado',
-        description: 'Debes iniciar sesión para crear un proyecto.',
-      });
-      return;
-    }
-    if (!newProjectName.trim()) {
-      toast({
-        variant: 'destructive',
-        title: 'Nombre requerido',
-        description: 'El nombre del proyecto no puede estar vacío.',
-      });
-      return;
-    }
+    if (!user || !projectName.trim()) return;
 
     setIsSubmitting(true);
     try {
-      const slug = newProjectName.toLowerCase().replace(/\s+/g, '-').replace(/[^\w-]+/g, '');
       const newProject = await createProject({
-        name: newProjectName,
-        description: newProjectDescription,
-        slug,
+        name: projectName,
+        description: projectDescription,
         createdBy: user.uid,
       });
-      setProjects((prevProjects) => [...prevProjects, newProject]);
-      toast({
-        title: '¡Éxito!',
-        description: `El proyecto "${newProjectName}" ha sido creado.`,
-      });
-      setNewProjectName('');
-      setNewProjectDescription('');
-      setIsDialogOpen(false);
+      setProjects((prev) => [...prev, newProject]);
+      toast({ title: 'Success!', description: `Project "${projectName}" created.` });
+      resetForm();
+      setIsCreateDialogOpen(false);
     } catch (error) {
-      console.error('Error creating project:', error);
-      toast({
-        variant: 'destructive',
-        title: 'Error al crear proyecto',
-        description: 'No se pudo crear el proyecto. Por favor, inténtalo de nuevo.',
-      });
+      console.error(error);
+      toast({ variant: 'destructive', title: 'Error creating project' });
     } finally {
       setIsSubmitting(false);
     }
   };
 
+  const handleEditProject = async (e: React.FormEvent) => {
+      e.preventDefault();
+      if (!user || !currentProject || !projectName.trim()) return;
+
+      setIsSubmitting(true);
+      try {
+          await updateProject(currentProject.id!, { name: projectName, description: projectDescription });
+          setProjects(prev => prev.map(p => p.id === currentProject.id ? {...p, name: projectName, description: projectDescription} : p));
+          toast({ title: 'Success!', description: `Project "${projectName}" updated.` });
+          resetForm();
+          setIsEditDialogOpen(false);
+      } catch (error) {
+          console.error(error);
+          toast({ variant: 'destructive', title: 'Error updating project' });
+      } finally {
+          setIsSubmitting(false);
+      }
+  }
+  
+  const handleDeleteProject = async () => {
+      if (!user || !currentProject) return;
+
+      try {
+          await deleteProject(currentProject.id!);
+          setProjects(prev => prev.filter(p => p.id !== currentProject.id));
+          toast({ title: 'Success!', description: `Project "${currentProject.name}" deleted.`});
+          resetForm();
+          setIsDeleteDialogOpen(false);
+      } catch (error) {
+          console.error(error);
+          toast({ variant: 'destructive', title: 'Error deleting project' });
+      }
+  }
+  
+  const openEditDialog = (project: Project) => {
+      setCurrentProject(project);
+      setProjectName(project.name);
+      setProjectDescription(project.description || '');
+      setIsEditDialogOpen(true);
+  }
+  
+  const openDeleteDialog = (project: Project) => {
+      setCurrentProject(project);
+      setIsDeleteDialogOpen(true);
+  }
+
   return (
+    <>
     <div className="flex flex-col gap-8">
       <div className="flex items-center justify-between">
         <div className="flex flex-col gap-2">
-          <h1 className="font-headline text-3xl font-bold tracking-tight">Proyectos</h1>
-          <p className="text-muted-foreground">Crea y gestiona tus proyectos aquí.</p>
+          <h1 className="font-headline text-3xl font-bold tracking-tight">Projects</h1>
+          <p className="text-muted-foreground">Create and manage your projects here.</p>
         </div>
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
           <DialogTrigger asChild>
             <Button>
               <PlusCircle className="mr-2" />
-              Crear Proyecto
+              Create Project
             </Button>
           </DialogTrigger>
           <DialogContent className="sm:max-w-[425px]">
             <form onSubmit={handleCreateProject}>
               <DialogHeader>
-                <DialogTitle>Crear nuevo proyecto</DialogTitle>
+                <DialogTitle>Create new project</DialogTitle>
                 <DialogDescription>
-                  Dale un nombre y una descripción a tu nuevo proyecto.
+                  Give your new project a name and description.
                 </DialogDescription>
               </DialogHeader>
               <div className="grid gap-4 py-4">
                 <div className="grid grid-cols-4 items-center gap-4">
                   <Label htmlFor="name" className="text-right">
-                    Nombre
+                    Name
                   </Label>
                   <Input
                     id="name"
-                    value={newProjectName}
-                    onChange={(e) => setNewProjectName(e.target.value)}
+                    value={projectName}
+                    onChange={(e) => setProjectName(e.target.value)}
                     className="col-span-3"
-                    placeholder="Mi increíble proyecto"
+                    placeholder="My awesome project"
                     disabled={isSubmitting}
                   />
                 </div>
                 <div className="grid grid-cols-4 items-center gap-4">
                   <Label htmlFor="description" className="text-right">
-                    Descripción
+                    Description
                   </Label>
                   <Textarea
                     id="description"
-                    value={newProjectDescription}
-                    onChange={(e) => setNewProjectDescription(e.target.value)}
+                    value={projectDescription}
+                    onChange={(e) => setProjectDescription(e.target.value)}
                     className="col-span-3"
-                    placeholder="Describe de qué se trata tu proyecto."
+                    placeholder="Describe what your project is about."
                     disabled={isSubmitting}
                   />
                 </div>
               </div>
               <DialogFooter>
-                <Button type="submit" disabled={isSubmitting}>
+                <DialogClose asChild><Button variant="outline">Cancel</Button></DialogClose>
+                <Button type="submit" disabled={isSubmitting || !projectName.trim()}>
                   {isSubmitting ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Creando...
-                    </>
-                  ) : (
-                    'Crear Proyecto'
-                  )}
+                    <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Creating...</>
+                  ) : 'Create Project'}
                 </Button>
               </DialogFooter>
             </form>
@@ -183,29 +239,119 @@ export default function ProjectsPage() {
       ) : projects.length > 0 ? (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {projects.map((project) => (
-            <Link href={`/projects/${project.id}`} key={project.id} className="block hover:shadow-lg transition-shadow rounded-lg">
-              <Card className="h-full">
-                <CardHeader>
-                  <CardTitle>{project.name}</CardTitle>
-                  {project.description && (
-                    <CardDescription className="line-clamp-2">{project.description}</CardDescription>
-                  )}
+            <Card key={project.id} className="h-full flex flex-col">
+                 <CardHeader className="flex flex-row items-start justify-between">
+                    <div>
+                        <CardTitle>
+                           <Link href={`/projects/${project.id}`} className="hover:underline">
+                                {project.name}
+                            </Link>
+                        </CardTitle>
+                        {project.description && (
+                            <CardDescription className="line-clamp-2 pt-2">{project.description}</CardDescription>
+                        )}
+                    </div>
+                     <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-8 w-8">
+                          <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => openEditDialog(project)}>
+                          <Edit className="mr-2" /> Edit
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => openDeleteDialog(project)} className="text-destructive">
+                          <Trash2 className="mr-2" /> Delete
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                 </CardHeader>
-                <CardContent>
-                  <p className="text-sm text-muted-foreground">Estado: <span className="font-medium text-foreground">{project.status || 'Activo'}</span></p>
-                </CardContent>
-              </Card>
-            </Link>
+              <CardContent className="flex-grow">
+                 {/* Content can go here */}
+              </CardContent>
+              <CardFooter>
+                  <p className="text-sm text-muted-foreground">Status: <span className="font-medium text-foreground">{project.status || 'Active'}</span></p>
+              </CardFooter>
+            </Card>
           ))}
         </div>
       ) : (
         <div className="flex h-64 items-center justify-center rounded-lg border border-dashed text-center">
           <div className="flex flex-col items-center gap-2 text-muted-foreground">
-            <h2 className="text-lg font-semibold">No hay proyectos todavía</h2>
-            <p className="text-sm">¡Crea tu primer proyecto para empezar a trabajar!</p>
+            <h2 className="text-lg font-semibold">No projects yet</h2>
+            <p className="text-sm">Create your first project to get started!</p>
           </div>
         </div>
       )}
     </div>
+
+    {/* Edit Project Dialog */}
+    <Dialog open={isEditDialogOpen} onOpenChange={(isOpen) => { setIsEditDialogOpen(isOpen); if (!isOpen) resetForm(); }}>
+        <DialogContent className="sm:max-w-[425px]">
+            <form onSubmit={handleEditProject}>
+            <DialogHeader>
+                <DialogTitle>Edit Project</DialogTitle>
+                <DialogDescription>
+                Update the name and description of your project.
+                </DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-4 py-4">
+                <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="edit-name" className="text-right">
+                    Name
+                </Label>
+                <Input
+                    id="edit-name"
+                    value={projectName}
+                    onChange={(e) => setProjectName(e.target.value)}
+                    className="col-span-3"
+                    disabled={isSubmitting}
+                />
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="edit-description" className="text-right">
+                    Description
+                </Label>
+                <Textarea
+                    id="edit-description"
+                    value={projectDescription}
+                    onChange={(e) => setProjectDescription(e.target.value)}
+                    className="col-span-3"
+                    disabled={isSubmitting}
+                />
+                </div>
+            </div>
+            <DialogFooter>
+                <DialogClose asChild><Button variant="outline">Cancel</Button></DialogClose>
+                <Button type="submit" disabled={isSubmitting || !projectName.trim()}>
+                {isSubmitting ? (
+                    <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Saving...</>
+                ) : 'Save Changes'}
+                </Button>
+            </DialogFooter>
+            </form>
+        </DialogContent>
+    </Dialog>
+    
+    {/* Delete Project Alert Dialog */}
+    <AlertDialog open={isDeleteDialogOpen} onOpenChange={(isOpen) => { setIsDeleteDialogOpen(isOpen); if (!isOpen) resetForm(); }}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+          <AlertDialogDescription>
+            This action cannot be undone. This will permanently delete the project
+            <span className="font-bold"> {currentProject?.name}</span> and all its associated tasks and bugs.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Cancel</AlertDialogCancel>
+          <AlertDialogAction onClick={handleDeleteProject} className="bg-destructive hover:bg-destructive/90">
+            Delete
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+    </>
   );
 }

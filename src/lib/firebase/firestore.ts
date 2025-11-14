@@ -12,8 +12,10 @@ import {
   getDoc,
   doc,
   updateDoc,
+  deleteDoc,
   orderBy,
   Timestamp,
+  writeBatch
 } from 'firebase/firestore';
 import { getFirebaseApp } from './get-firebase-app';
 
@@ -24,7 +26,6 @@ const db = getFirestore(app);
 export interface Project extends DocumentData {
   id?: string;
   name: string;
-  slug: string;
   description?: string;
   status?: string;
   createdBy: string;
@@ -93,16 +94,18 @@ export interface WikiPage extends DocumentData {
  * @returns El objeto del proyecto con su ID.
  */
 export const createProject = async (
-  projectData: Omit<Project, 'id' | 'createdAt' | 'updatedAt'>
+  projectData: Omit<Project, 'id' | 'createdAt' | 'updatedAt' | 'slug'>
 ): Promise<Project> => {
   try {
+    const slug = projectData.name.toLowerCase().replace(/\s+/g, '-').replace(/[^\w-]+/g, '');
     const docRef = await addDoc(collection(db, 'projects'), {
       ...projectData,
+      slug,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
       status: 'active'
     });
-    return { id: docRef.id, ...projectData, createdAt: new Date(), updatedAt: new Date(), status: 'active' };
+    return { id: docRef.id, ...projectData, slug, createdAt: new Date(), updatedAt: new Date(), status: 'active' };
   } catch (error) {
     console.error('Error creating project: ', error);
     throw new Error('Could not create the project.');
@@ -116,7 +119,7 @@ export const createProject = async (
 export const getProjects = async (userId?: string): Promise<Project[]> => {
   try {
     const projectsRef = collection(db, 'projects');
-    const q = userId ? query(projectsRef, where('createdBy', '==', userId)) : query(projectsRef);
+    const q = userId ? query(projectsRef, where('createdBy', '==', userId), orderBy('createdAt', 'desc')) : query(projectsRef, orderBy('createdAt', 'desc'));
     const querySnapshot = await getDocs(q);
     const projects: Project[] = [];
     querySnapshot.forEach((doc) => {
@@ -150,6 +153,65 @@ export const getProject = async (projectId: string): Promise<Project | null> => 
         throw new Error("Could not get the project.");
     }
 };
+
+/**
+ * Actualiza un proyecto en Firestore.
+ */
+export const updateProject = async (
+  projectId: string,
+  projectData: Partial<Project>
+): Promise<void> => {
+  try {
+    const projectRef = doc(db, 'projects', projectId);
+    await updateDoc(projectRef, {
+      ...projectData,
+      updatedAt: serverTimestamp(),
+    });
+  } catch (error) {
+    console.error('Error updating project: ', error);
+    throw new Error('Could not update the project.');
+  }
+};
+
+/**
+ * Elimina un proyecto y todas sus tareas y bugs asociados.
+ */
+export const deleteProject = async (projectId: string): Promise<void> => {
+  try {
+    const batch = writeBatch(db);
+
+    // Delete project
+    const projectRef = doc(db, 'projects', projectId);
+    batch.delete(projectRef);
+
+    // Find and delete associated tasks
+    const tasksQuery = query(collection(db, 'tasks'), where('projectId', '==', projectId));
+    const tasksSnapshot = await getDocs(tasksQuery);
+    tasksSnapshot.forEach((taskDoc) => {
+      batch.delete(taskDoc.ref);
+    });
+
+    // Find and delete associated bugs
+    const bugsQuery = query(collection(db, 'bugs'), where('projectId', '==', projectId));
+    const bugsSnapshot = await getDocs(bugsQuery);
+    bugsSnapshot.forEach((bugDoc) => {
+      batch.delete(bugDoc.ref);
+    });
+    
+    // Find and delete associated time logs
+    const timeLogsQuery = query(collection(db, 'timeLogs'), where('projectId', '==', projectId));
+    const timeLogsSnapshot = await getDocs(timeLogsQuery);
+    timeLogsSnapshot.forEach((logDoc) => {
+        batch.delete(logDoc.ref);
+    });
+
+    await batch.commit();
+  } catch (error) {
+    console.error('Error deleting project and associated data: ', error);
+    throw new Error('Could not delete the project.');
+  }
+};
+
 
 
 // ---- Funciones para Tareas ----
@@ -258,7 +320,7 @@ export const createBug = async (
  */
 export const getBugs = async (): Promise<Bug[]> => {
   try {
-    const q = query(collection(db, 'bugs'));
+    const q = query(collection(db, 'bugs'), orderBy('createdAt', 'desc'));
     const querySnapshot = await getDocs(q);
     const bugs: Bug[] = [];
     querySnapshot.forEach((doc) => {

@@ -24,9 +24,7 @@ export default function BugsPage() {
             getBugs(),
             getProjects(), // Fetches all projects for bug association
           ]);
-          // Sort bugs by creation date, newest first
-          const sortedBugs = bugData.sort((a, b) => b.createdAt.toDate() - a.createdAt.toDate());
-          setBugs(sortedBugs);
+          setBugs(bugData);
           setProjects(projectData);
         } catch (error) {
           console.error('Error fetching data:', error);
@@ -44,7 +42,7 @@ export default function BugsPage() {
   }, [user, toast]);
 
   const handleBugCreated = (newBug: Bug) => {
-    setBugs((prevBugs) => [newBug, ...prevBugs]);
+    setBugs((prevBugs) => [newBug, ...prevBugs].sort((a, b) => b.createdAt.toDate() - a.createdAt.toDate()));
   };
 
   return (
