@@ -1,0 +1,205 @@
+/**
+ * @file Firestore Security Rules
+ * @description This ruleset enforces a flat permission model: all authenticated users have the same level of access. There are no specific roles or distinctions in permissions between users.
+ *
+ * Data Structure:
+ * - /users/{userId}: Stores user profile information. Access is restricted to the owning user.
+ * - /projects/{projectId}: Stores project information. Any authenticated user can read and write.
+ * - /projects/{projectId}/members/{projectMemberId}: Stores project member information. Any authenticated user can read and write.
+ * - /projects/{projectId}/tasks/{taskId}: Stores task information. Any authenticated user can read and write.
+ * - /projects/{projectId}/sprints/{sprintId}: Stores sprint information. Any authenticated user can read and write.
+ * - /projects/{projectId}/tasks/{taskId}/subtasks/{subtaskId}: Stores subtask information. Any authenticated user can read and write.
+ * - /projects/{projectId}/tasks/{taskId}/comments/{taskCommentId}: Stores task comments. Any authenticated user can read and write.
+ * - /projects/{projectId}/tasks/{taskId}/attachments/{attachmentId}: Stores attachments. Any authenticated user can read and write.
+ * - /projects/{projectId}/bugs/{bugId}: Stores bug information. Any authenticated user can read and write.
+ * - /time_entries/{timeEntryId}: Stores time entry information. Any authenticated user can read and write.
+ * - /wiki_pages/{wikiPageId}: Stores wiki page information. Any authenticated user can read and write.
+ * - /users/{userId}/notifications/{notificationId}: Stores notification information for a specific user. Only the owning user can access.
+ * - /audit_logs/{auditLogId}: Stores audit log information. Any authenticated user can read and write.
+ *
+ * Key Security Decisions:
+ * - No roles: All authenticated users have identical permissions.
+ * - User data segregation: Notifications are stored under the /users/{userId} path to ensure only the owning user can access them.
+ */
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    /**
+     * @description Defines whether the current user is signed in.
+     * @example isSignedIn() == true if request.auth != null
+     */
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    /**
+     * @description Defines whether the current user is the owner of the document.
+     * @example isOwner("some_user_id") == (request.auth.uid == "some_user_id")
+     */
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
+
+    /**
+     * @description Defines whether the current user is the owner of the document and the document exists.
+     * @example isExistingOwner("some_user_id") == (request.auth.uid == "some_user_id" && resource != null)
+     */
+    function isExistingOwner(userId) {
+      return isOwner(userId) && resource != null;
+    }
+
+    /**
+     * @description Secures user profile data.
+     * @path /users/{userId}
+     * @allow (create) - Authenticated user creating their own profile.
+     * @allow (get, list, update, delete) - Authenticated user accessing their own profile.
+     * @deny (create) - Authenticated user trying to create another user's profile.
+     * @deny (update, delete) - Authenticated user trying to modify another user's profile.
+     * @principle Enforces user-ownership: Users can only manage their own profiles.
+     */
+    match /users/{userId} {
+      allow get: if isOwner(userId);
+      allow list: if false;
+      allow create: if isOwner(userId) && request.resource.data.id == userId;
+      allow update: if isExistingOwner(userId) && request.resource.data.id == resource.data.id;
+      allow delete: if isExistingOwner(userId);
+    }
+
+    /**
+     * @description Secures project data.
+     * @path /projects/{projectId}
+     * @allow (create, get, list, update, delete) - Any authenticated user can perform any operation.
+     * @principle All authenticated users have the same access.
+     */
+    match /projects/{projectId} {
+      allow get, list: if isSignedIn();
+      allow create, update, delete: if isSignedIn();
+    }
+
+    /**
+     * @description Secures project member data.
+     * @path /projects/{projectId}/members/{projectMemberId}
+     * @allow (create, get, list, update, delete) - Any authenticated user can perform any operation.
+     * @principle All authenticated users have the same access.
+     */
+    match /projects/{projectId}/members/{projectMemberId} {
+      allow get, list: if isSignedIn();
+      allow create, update, delete: if isSignedIn();
+    }
+
+    /**
+     * @description Secures task data within a project.
+     * @path /projects/{projectId}/tasks/{taskId}
+     * @allow (create, get, list, update, delete) - Any authenticated user can perform any operation.
+     * @principle All authenticated users have the same access.
+     */
+    match /projects/{projectId}/tasks/{taskId} {
+      allow get, list: if isSignedIn();
+      allow create, update, delete: if isSignedIn();
+    }
+
+    /**
+     * @description Secures sprint data within a project.
+     * @path /projects/{projectId}/sprints/{sprintId}
+     * @allow (create, get, list, update, delete) - Any authenticated user can perform any operation.
+     * @principle All authenticated users have the same access.
+     */
+    match /projects/{projectId}/sprints/{sprintId} {
+      allow get, list: if isSignedIn();
+      allow create, update, delete: if isSignedIn();
+    }
+
+    /**
+     * @description Secures subtask data for a task.
+     * @path /projects/{projectId}/tasks/{taskId}/subtasks/{subtaskId}
+     * @allow (create, get, list, update, delete) - Any authenticated user can perform any operation.
+     * @principle All authenticated users have the same access.
+     */
+    match /projects/{projectId}/tasks/{taskId}/subtasks/{subtaskId} {
+      allow get, list: if isSignedIn();
+      allow create, update, delete: if isSignedIn();
+    }
+
+    /**
+     * @description Secures comments for a task.
+     * @path /projects/{projectId}/tasks/{taskId}/comments/{taskCommentId}
+     * @allow (create, get, list, update, delete) - Any authenticated user can perform any operation.
+     * @principle All authenticated users have the same access.
+     */
+    match /projects/{projectId}/tasks/{taskId}/comments/{taskCommentId} {
+      allow get, list: if isSignedIn();
+      allow create, update, delete: if isSignedIn();
+    }
+
+    /**
+     * @description Secures attachments for a task.
+     * @path /projects/{projectId}/tasks/{taskId}/attachments/{attachmentId}
+     * @allow (create, get, list, update, delete) - Any authenticated user can perform any operation.
+     * @principle All authenticated users have the same access.
+     */
+    match /projects/{projectId}/tasks/{taskId}/attachments/{attachmentId} {
+      allow get, list: if isSignedIn();
+      allow create, update, delete: if isSignedIn();
+    }
+
+    /**
+     * @description Secures bug data within a project.
+     * @path /projects/{projectId}/bugs/{bugId}
+     * @allow (create, get, list, update, delete) - Any authenticated user can perform any operation.
+     * @principle All authenticated users have the same access.
+     */
+    match /projects/{projectId}/bugs/{bugId} {
+      allow get, list: if isSignedIn();
+      allow create, update, delete: if isSignedIn();
+    }
+
+    /**
+     * @description Secures time entry data.
+     * @path /time_entries/{timeEntryId}
+     * @allow (create, get, list, update, delete) - Any authenticated user can perform any operation.
+     * @principle All authenticated users have the same access.
+     */
+    match /time_entries/{timeEntryId} {
+      allow get, list: if isSignedIn();
+      allow create, update, delete: if isSignedIn();
+    }
+
+    /**
+     * @description Secures wiki page data.
+     * @path /wiki_pages/{wikiPageId}
+     * @allow (create, get, list, update, delete) - Any authenticated user can perform any operation.
+     * @principle All authenticated users have the same access.
+     */
+    match /wiki_pages/{wikiPageId} {
+      allow get, list: if isSignedIn();
+      allow create, update, delete: if isSignedIn();
+    }
+
+    /**
+     * @description Secures notification data for a specific user.
+     * @path /users/{userId}/notifications/{notificationId}
+     * @allow (get, list, create, update, delete) - Only the owning user can perform operations.
+     * @deny (get, list, create, update, delete) - Other users cannot access these notifications.
+     * @principle Enforces user-ownership: Users can only manage their own notifications.
+     */
+    match /users/{userId}/notifications/{notificationId} {
+      allow get: if isOwner(userId);
+      allow list: if isOwner(userId);
+      allow create: if isOwner(userId) && request.resource.data.userId == userId;
+      allow update: if isExistingOwner(userId) && request.resource.data.userId == userId;
+      allow delete: if isExistingOwner(userId);
+    }
+
+    /**
+     * @description Secures audit log data.
+     * @path /audit_logs/{auditLogId}
+     * @allow (create, get, list, update, delete) - Any authenticated user can perform any operation.
+     * @principle All authenticated users have the same access.
+     */
+    match /audit_logs/{auditLogId} {
+      allow get, list: if isSignedIn();
+      allow create, update, delete: if isSignedIn();
+    }
+  }
+}

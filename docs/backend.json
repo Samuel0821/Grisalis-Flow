@@ -1,0 +1,875 @@
+{
+  "entities": {
+    "User": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "User",
+      "type": "object",
+      "description": "Represents a user within the Grisalis Flow system.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the user entity."
+        },
+        "email": {
+          "type": "string",
+          "description": "Email address of the user.",
+          "format": "email"
+        },
+        "firstName": {
+          "type": "string",
+          "description": "First name of the user."
+        },
+        "lastName": {
+          "type": "string",
+          "description": "Last name of the user."
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp indicating when the user account was created.",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Timestamp indicating when the user account was last updated.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "email",
+        "firstName",
+        "lastName",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "Project": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Project",
+      "type": "object",
+      "description": "Represents a project within the Grisalis Flow system.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the project entity."
+        },
+        "name": {
+          "type": "string",
+          "description": "Name of the project."
+        },
+        "description": {
+          "type": "string",
+          "description": "Detailed description of the project."
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp indicating when the project was created.",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Timestamp indicating when the project was last updated.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "description",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "ProjectMember": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "ProjectMember",
+      "type": "object",
+      "description": "Represents the association between a user and a project, indicating their membership.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the project member relationship."
+        },
+        "projectId": {
+          "type": "string",
+          "description": "Reference to Project. (Relationship: Project 1:N ProjectMember)"
+        },
+        "userId": {
+          "type": "string",
+          "description": "Reference to User. (Relationship: User 1:N ProjectMember)"
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp indicating when the project member relationship was created.",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Timestamp indicating when the project member relationship was last updated.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "projectId",
+        "userId",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "Task": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Task",
+      "type": "object",
+      "description": "Represents a task within a project.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the task entity."
+        },
+        "projectId": {
+          "type": "string",
+          "description": "Reference to Project. (Relationship: Project 1:N Task)"
+        },
+        "sprintId": {
+          "type": "string",
+          "description": "Reference to Sprint. (Relationship: Sprint 1:N Task). Can be null if the task is not in a sprint."
+        },
+        "name": {
+          "type": "string",
+          "description": "Name of the task."
+        },
+        "description": {
+          "type": "string",
+          "description": "Detailed description of the task."
+        },
+        "status": {
+          "type": "string",
+          "description": "Current status of the task (e.g., Backlog, To-do, In progress, Testing, Review, Done)."
+        },
+        "assigneeId": {
+          "type": "string",
+          "description": "Reference to User assigned to the task. (Relationship: User 1:N Task)"
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp indicating when the task was created.",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Timestamp indicating when the task was last updated.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "projectId",
+        "name",
+        "description",
+        "status",
+        "assigneeId",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "Sprint": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Sprint",
+      "type": "object",
+      "description": "Represents a sprint within a project.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the sprint entity."
+        },
+        "projectId": {
+          "type": "string",
+          "description": "Reference to Project. (Relationship: Project 1:N Sprint)"
+        },
+        "name": {
+          "type": "string",
+          "description": "Name of the sprint."
+        },
+        "startDate": {
+          "type": "string",
+          "description": "Start date of the sprint.",
+          "format": "date-time"
+        },
+        "endDate": {
+          "type": "string",
+          "description": "End date of the sprint.",
+          "format": "date-time"
+        },
+        "isActive": {
+          "type": "boolean",
+          "description": "Indicates whether the sprint is currently active."
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp indicating when the sprint was created.",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Timestamp indicating when the sprint was last updated.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "projectId",
+        "name",
+        "startDate",
+        "endDate",
+        "isActive",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "Subtask": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Subtask",
+      "type": "object",
+      "description": "Represents a subtask associated with a task.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the subtask entity."
+        },
+        "taskId": {
+          "type": "string",
+          "description": "Reference to Task. (Relationship: Task 1:N Subtask)"
+        },
+        "name": {
+          "type": "string",
+          "description": "Name of the subtask."
+        },
+        "isCompleted": {
+          "type": "boolean",
+          "description": "Indicates whether the subtask is completed."
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp indicating when the subtask was created.",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Timestamp indicating when the subtask was last updated.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "taskId",
+        "name",
+        "isCompleted",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "TaskComment": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "TaskComment",
+      "type": "object",
+      "description": "Represents a comment on a task.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the task comment entity."
+        },
+        "taskId": {
+          "type": "string",
+          "description": "Reference to Task. (Relationship: Task 1:N TaskComment)"
+        },
+        "userId": {
+          "type": "string",
+          "description": "Reference to User who created the comment. (Relationship: User 1:N TaskComment)"
+        },
+        "comment": {
+          "type": "string",
+          "description": "The actual comment text."
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp indicating when the task comment was created.",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Timestamp indicating when the task comment was last updated.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "taskId",
+        "userId",
+        "comment",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "Attachment": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Attachment",
+      "type": "object",
+      "description": "Represents an attachment associated with a task.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the attachment entity."
+        },
+        "taskId": {
+          "type": "string",
+          "description": "Reference to Task. (Relationship: Task 1:N Attachment)"
+        },
+        "filename": {
+          "type": "string",
+          "description": "Original filename of the attachment."
+        },
+        "filePath": {
+          "type": "string",
+          "description": "Path to the stored attachment file."
+        },
+        "fileType": {
+          "type": "string",
+          "description": "MIME type of the attachment."
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp indicating when the attachment was created.",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Timestamp indicating when the attachment was last updated.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "taskId",
+        "filename",
+        "filePath",
+        "fileType",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "Bug": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Bug",
+      "type": "object",
+      "description": "Represents a bug reported for a project.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the bug entity."
+        },
+        "projectId": {
+          "type": "string",
+          "description": "Reference to Project. (Relationship: Project 1:N Bug)"
+        },
+        "taskId": {
+          "type": "string",
+          "description": "Reference to Task. (Relationship: Task 1:N Bug).  Can be null if not directly related to a task."
+        },
+        "severity": {
+          "type": "string",
+          "description": "Severity level of the bug (e.g., Critical, High, Medium, Low)."
+        },
+        "description": {
+          "type": "string",
+          "description": "Detailed description of the bug."
+        },
+        "reproductionSteps": {
+          "type": "string",
+          "description": "Steps to reproduce the bug."
+        },
+        "evidence": {
+          "type": "string",
+          "description": "Additional evidence or information related to the bug (e.g., screenshots, logs)."
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp indicating when the bug was reported.",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Timestamp indicating when the bug was last updated.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "projectId",
+        "severity",
+        "description",
+        "reproductionSteps",
+        "evidence",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "TimeEntry": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "TimeEntry",
+      "type": "object",
+      "description": "Represents a time entry logged by a user for a specific task.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the time entry entity."
+        },
+        "userId": {
+          "type": "string",
+          "description": "Reference to User. (Relationship: User 1:N TimeEntry)"
+        },
+        "taskId": {
+          "type": "string",
+          "description": "Reference to Task. (Relationship: Task 1:N TimeEntry)"
+        },
+        "startTime": {
+          "type": "string",
+          "description": "Start time of the time entry.",
+          "format": "date-time"
+        },
+        "endTime": {
+          "type": "string",
+          "description": "End time of the time entry.",
+          "format": "date-time"
+        },
+        "duration": {
+          "type": "number",
+          "description": "Duration of the time entry in minutes."
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp indicating when the time entry was created.",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Timestamp indicating when the time entry was last updated.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "userId",
+        "taskId",
+        "startTime",
+        "endTime",
+        "duration",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "WikiPage": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "WikiPage",
+      "type": "object",
+      "description": "Represents a wiki page within the system.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the wiki page entity."
+        },
+        "title": {
+          "type": "string",
+          "description": "Title of the wiki page."
+        },
+        "slug": {
+          "type": "string",
+          "description": "URL-friendly slug for the wiki page."
+        },
+        "content": {
+          "type": "string",
+          "description": "Content of the wiki page (e.g., Markdown or HTML)."
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp indicating when the wiki page was created.",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Timestamp indicating when the wiki page was last updated.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "title",
+        "slug",
+        "content",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "Notification": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Notification",
+      "type": "object",
+      "description": "Represents a notification for a user.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the notification entity."
+        },
+        "userId": {
+          "type": "string",
+          "description": "Reference to User. (Relationship: User 1:N Notification)"
+        },
+        "message": {
+          "type": "string",
+          "description": "Message content of the notification."
+        },
+        "type": {
+          "type": "string",
+          "description": "Type of notification (e.g., task_assigned, comment_added, status_changed, bug_critical)."
+        },
+        "isRead": {
+          "type": "boolean",
+          "description": "Indicates whether the notification has been read by the user."
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp indicating when the notification was created.",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Timestamp indicating when the notification was last updated.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "userId",
+        "message",
+        "type",
+        "isRead",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "AuditLog": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "AuditLog",
+      "type": "object",
+      "description": "Represents an audit log entry for tracking changes within the system.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the audit log entry."
+        },
+        "userId": {
+          "type": "string",
+          "description": "Reference to User who performed the action. (Relationship: User 1:N AuditLog)"
+        },
+        "action": {
+          "type": "string",
+          "description": "Description of the action performed (e.g., task_moved, project_modified, user_created)."
+        },
+        "entityType": {
+          "type": "string",
+          "description": "Type of entity affected by the action (e.g., Task, Project, User)."
+        },
+        "entityId": {
+          "type": "string",
+          "description": "Identifier of the entity affected by the action."
+        },
+        "oldValue": {
+          "type": "string",
+          "description": "Previous value of the entity attribute that was changed (JSON format)."
+        },
+        "newValue": {
+          "type": "string",
+          "description": "New value of the entity attribute that was changed (JSON format)."
+        },
+        "timestamp": {
+          "type": "string",
+          "description": "Timestamp indicating when the action was performed.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "userId",
+        "action",
+        "entityType",
+        "entityId",
+        "oldValue",
+        "newValue",
+        "timestamp"
+      ]
+    }
+  },
+  "auth": {
+    "providers": [
+      "password",
+      "anonymous"
+    ]
+  },
+  "firestore": {
+    "structure": [
+      {
+        "path": "/users/{userId}",
+        "definition": {
+          "entityName": "User",
+          "schema": {
+            "$ref": "#/backend/entities/User"
+          },
+          "description": "Stores user profile information.  Path-based ownership for private user data.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique identifier for the user."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/projects/{projectId}",
+        "definition": {
+          "entityName": "Project",
+          "schema": {
+            "$ref": "#/backend/entities/Project"
+          },
+          "description": "Stores project information.",
+          "params": [
+            {
+              "name": "projectId",
+              "description": "The unique identifier for the project."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/projects/{projectId}/members/{projectMemberId}",
+        "definition": {
+          "entityName": "ProjectMember",
+          "schema": {
+            "$ref": "#/backend/entities/ProjectMember"
+          },
+          "description": "Stores project member information.",
+          "params": [
+            {
+              "name": "projectId",
+              "description": "The unique identifier for the project."
+            },
+            {
+              "name": "projectMemberId",
+              "description": "The unique identifier for the project member."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/projects/{projectId}/tasks/{taskId}",
+        "definition": {
+          "entityName": "Task",
+          "schema": {
+            "$ref": "#/backend/entities/Task"
+          },
+          "description": "Stores task information within a project.",
+          "params": [
+            {
+              "name": "projectId",
+              "description": "The unique identifier for the project."
+            },
+            {
+              "name": "taskId",
+              "description": "The unique identifier for the task."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/projects/{projectId}/sprints/{sprintId}",
+        "definition": {
+          "entityName": "Sprint",
+          "schema": {
+            "$ref": "#/backend/entities/Sprint"
+          },
+          "description": "Stores sprint information within a project.",
+          "params": [
+            {
+              "name": "projectId",
+              "description": "The unique identifier for the project."
+            },
+            {
+              "name": "sprintId",
+              "description": "The unique identifier for the sprint."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/projects/{projectId}/tasks/{taskId}/subtasks/{subtaskId}",
+        "definition": {
+          "entityName": "Subtask",
+          "schema": {
+            "$ref": "#/backend/entities/Subtask"
+          },
+          "description": "Stores subtask information for a task.",
+          "params": [
+            {
+              "name": "projectId",
+              "description": "The unique identifier for the project."
+            },
+            {
+              "name": "taskId",
+              "description": "The unique identifier for the task."
+            },
+            {
+              "name": "subtaskId",
+              "description": "The unique identifier for the subtask."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/projects/{projectId}/tasks/{taskId}/comments/{taskCommentId}",
+        "definition": {
+          "entityName": "TaskComment",
+          "schema": {
+            "$ref": "#/backend/entities/TaskComment"
+          },
+          "description": "Stores comments for a task.",
+          "params": [
+            {
+              "name": "projectId",
+              "description": "The unique identifier for the project."
+            },
+            {
+              "name": "taskId",
+              "description": "The unique identifier for the task."
+            },
+            {
+              "name": "taskCommentId",
+              "description": "The unique identifier for the task comment."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/projects/{projectId}/tasks/{taskId}/attachments/{attachmentId}",
+        "definition": {
+          "entityName": "Attachment",
+          "schema": {
+            "$ref": "#/backend/entities/Attachment"
+          },
+          "description": "Stores attachments for a task.",
+          "params": [
+            {
+              "name": "projectId",
+              "description": "The unique identifier for the project."
+            },
+            {
+              "name": "taskId",
+              "description": "The unique identifier for the task."
+            },
+            {
+              "name": "attachmentId",
+              "description": "The unique identifier for the attachment."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/projects/{projectId}/bugs/{bugId}",
+        "definition": {
+          "entityName": "Bug",
+          "schema": {
+            "$ref": "#/backend/entities/Bug"
+          },
+          "description": "Stores bug information within a project.",
+          "params": [
+            {
+              "name": "projectId",
+              "description": "The unique identifier for the project."
+            },
+            {
+              "name": "bugId",
+              "description": "The unique identifier for the bug."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/time_entries/{timeEntryId}",
+        "definition": {
+          "entityName": "TimeEntry",
+          "schema": {
+            "$ref": "#/backend/entities/TimeEntry"
+          },
+          "description": "Stores time entry information.",
+          "params": [
+            {
+              "name": "timeEntryId",
+              "description": "The unique identifier for the time entry."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/wiki_pages/{wikiPageId}",
+        "definition": {
+          "entityName": "WikiPage",
+          "schema": {
+            "$ref": "#/backend/entities/WikiPage"
+          },
+          "description": "Stores wiki page information.",
+          "params": [
+            {
+              "name": "wikiPageId",
+              "description": "The unique identifier for the wiki page."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/users/{userId}/notifications/{notificationId}",
+        "definition": {
+          "entityName": "Notification",
+          "schema": {
+            "$ref": "#/backend/entities/Notification"
+          },
+          "description": "Stores notification information for a specific user.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique identifier for the user."
+            },
+            {
+              "name": "notificationId",
+              "description": "The unique identifier for the notification."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/audit_logs/{auditLogId}",
+        "definition": {
+          "entityName": "AuditLog",
+          "schema": {
+            "$ref": "#/backend/entities/AuditLog"
+          },
+          "description": "Stores audit log information.",
+          "params": [
+            {
+              "name": "auditLogId",
+              "description": "The unique identifier for the audit log."
+            }
+          ]
+        }
+      }
+    ],
+    "reasoning": "Given the requirement for a system without explicit roles (all users have the same permissions), a straightforward Firestore structure is recommended.  Authorization is simplified as any authenticated user has the same access rights. This design emphasizes structural segregation, ensuring each collection's security posture is homogenous.  \n\n*   **Authorization Independence:** Since all users have the same permissions, no denormalization is required. Access is based solely on authentication.\n*   **QAPs:** The structure enables secure `list` operations, because every document in the collection shares the same security requirements, no extra filtering is needed in rules.\n*   **Audit Logs:** Audit logs should be stored separately to prevent unauthorized read/write of the log information. Since it is intended for admin activity and not end-user, no user based segregation is created.\n*   **User Data:** Private data for each user (notifications) are stored in paths owned by the user."
+  }
+}
