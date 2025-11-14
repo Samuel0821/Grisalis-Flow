@@ -205,7 +205,8 @@ export const createAuditLog = async (logData: Omit<AuditLog, 'id' | 'timestamp'>
         });
     } catch (error) {
         console.error("Error creating audit log:", error);
-        // Fail silently so we don't block user actions
+        // Fail silently so we don't block user actions, but log it.
+        // Avoid throwing an error here as it might disrupt user-facing flows.
     }
 };
 
@@ -597,6 +598,16 @@ export const updateTaskStatus = async (
         entityId: taskId,
         details: { from: oldStatus, to: newStatus }
     });
+     // Create a notification for the task assignee, if they are not the one changing the status
+     const task = await getTask(taskId);
+     if (task && task.assigneeId && task.assigneeId !== user.uid) {
+         await createNotification({
+             userId: task.assigneeId,
+             type: 'status_changed',
+             message: `The status of your task "${task.title}" was changed to "${newStatus.replace('_', ' ')}".`,
+             link: `/projects/${task.projectId}` // Adjust link as needed
+         });
+     }
   } catch (error) {
     console.error('Error updating task status: ', error);
     throw new Error('Could not update the task status.');

@@ -1,6 +1,7 @@
+
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Logo } from '@/components/icons/logo';
@@ -16,9 +17,11 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { getAuth, signInWithEmailAndPassword } from 'firebase/auth';
-import { Loader2 } from 'lucide-react';
-import { createAuditLog } from '@/lib/firebase/firestore';
+import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
+import { Loader2, AlertTriangle, UserPlus } from 'lucide-react';
+import { createAuditLog, getAllUsers, UserProfile } from '@/lib/firebase/firestore';
+import { doc, setDoc, serverTimestamp, getFirestore } from 'firebase/firestore';
+
 
 export default function LoginPage() {
   const router = useRouter();
@@ -26,6 +29,27 @@ export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isSeeding, setIsSeeding] = useState(false);
+  const [isSetupNeeded, setIsSetupNeeded] = useState(false);
+  const [isCheckingSetup, setIsCheckingSetup] = useState(true);
+
+  useEffect(() => {
+    // Check if any user exists to determine if the setup button should be shown
+    const checkUsers = async () => {
+      try {
+        const users = await getAllUsers();
+        setIsSetupNeeded(users.length === 0);
+      } catch (error) {
+        // This might fail if rules prevent listing users, which is fine.
+        // We'll assume setup is not needed if we can't check.
+        console.warn("Could not check for existing users, assuming setup is complete.", error);
+        setIsSetupNeeded(false);
+      } finally {
+        setIsCheckingSetup(false);
+      }
+    };
+    checkUsers();
+  }, []);
 
   const handleSignIn = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -71,6 +95,64 @@ export default function LoginPage() {
     }
   };
 
+  const handleSetupFirstAdmin = async () => {
+    setIsSeeding(true);
+    const adminEmail = 'admin@grisalistech.com';
+    const adminPassword = 'Adm1nTech1411';
+
+    try {
+      // 1. Create the user in Firebase Auth
+      const userCredential = await createUserWithEmailAndPassword(getAuth(), adminEmail, adminPassword);
+      const user = userCredential.user;
+
+      // 2. Create the user profile in Firestore with 'admin' role
+      const userProfileRef = doc(getFirestore(), 'userProfiles', user.uid);
+      await setDoc(userProfileRef, {
+          id: user.uid,
+          email: user.email,
+          displayName: 'Admin Grisalis',
+          role: 'admin',
+          createdAt: serverTimestamp(),
+      });
+      
+      await createAuditLog({
+        userId: user.uid,
+        userName: 'Admin Grisalis',
+        action: 'Initial admin user created',
+        entity: 'user',
+        entityId: user.uid,
+        details: { email: user.email },
+      });
+
+      toast({
+        title: '¡Administrador Creado!',
+        description: 'Tu usuario administrador ha sido configurado. Ahora puedes iniciar sesión.',
+      });
+
+      // Refresh the check
+      setIsSetupNeeded(false);
+
+    } catch (error: any) {
+        if (error.code === 'auth/email-already-in-use') {
+             toast({
+                variant: 'default',
+                title: 'Administrador ya existe',
+                description: 'El usuario administrador ya fue creado. Por favor, inicia sesión.',
+            });
+            setIsSetupNeeded(false);
+        } else {
+            console.error('Error creating first admin:', error);
+            toast({
+                variant: 'destructive',
+                title: 'Error en la Configuración',
+                description: 'No se pudo crear el usuario administrador. Revisa la consola para más detalles.',
+            });
+        }
+    } finally {
+        setIsSeeding(false);
+    }
+  }
+
   return (
     <main className="flex min-h-screen flex-col items-center justify-center bg-background p-4">
       <div className="w-full max-w-md">
@@ -87,6 +169,39 @@ export default function LoginPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
+            {isSetupNeeded && !isCheckingSetup && (
+               <Card className="mb-6 bg-yellow-50 border-yellow-200">
+                <CardHeader>
+                    <CardTitle className="flex items-center gap-2 text-yellow-900 text-lg">
+                        <AlertTriangle className="h-5 w-5" />
+                        Configuración Requerida
+                    </CardTitle>
+                </CardHeader>
+                <CardContent>
+                    <p className="text-sm text-yellow-800 mb-4">
+                        Parece que es la primera vez que ejecutas la aplicación. Debes crear el primer usuario administrador para poder ingresar.
+                    </p>
+                    <Button 
+                        className="w-full bg-yellow-400 text-yellow-900 hover:bg-yellow-500"
+                        onClick={handleSetupFirstAdmin}
+                        disabled={isSeeding}
+                    >
+                         {isSeeding ? (
+                            <>
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                Creando Administrador...
+                            </>
+                         ) : (
+                             <>
+                                <UserPlus className="mr-2 h-4 w-4" />
+                                Crear Usuario Admin
+                             </>
+                         )}
+                    </Button>
+                </CardContent>
+               </Card>
+            )}
+
             <form onSubmit={handleSignIn} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="email">Email</Label>
@@ -97,7 +212,7 @@ export default function LoginPage() {
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  disabled={isLoading}
+                  disabled={isLoading || isSeeding}
                 />
               </div>
               <div className="space-y-2">
@@ -116,10 +231,10 @@ export default function LoginPage() {
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  disabled={isLoading}
+                  disabled={isLoading || isSeeding}
                 />
               </div>
-              <Button type="submit" className="w-full" disabled={isLoading}>
+              <Button type="submit" className="w-full" disabled={isLoading || isSeeding || isSetupNeeded}>
                 {isLoading ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
