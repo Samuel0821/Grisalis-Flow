@@ -2,6 +2,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -182,17 +183,19 @@ export default function ProjectsPage() {
       ) : projects.length > 0 ? (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {projects.map((project) => (
-            <Card key={project.id}>
-              <CardHeader>
-                <CardTitle>{project.name}</CardTitle>
-                {project.description && (
-                  <CardDescription className="line-clamp-2">{project.description}</CardDescription>
-                )}
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm text-muted-foreground">Estado: <span className="font-medium text-foreground">{project.status || 'Activo'}</span></p>
-              </CardContent>
-            </Card>
+            <Link href={`/projects/${project.id}`} key={project.id} className="block hover:shadow-lg transition-shadow rounded-lg">
+              <Card className="h-full">
+                <CardHeader>
+                  <CardTitle>{project.name}</CardTitle>
+                  {project.description && (
+                    <CardDescription className="line-clamp-2">{project.description}</CardDescription>
+                  )}
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm text-muted-foreground">Estado: <span className="font-medium text-foreground">{project.status || 'Activo'}</span></p>
+                </CardContent>
+              </Card>
+            </Link>
           ))}
         </div>
       ) : (

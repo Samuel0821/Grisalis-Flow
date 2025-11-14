@@ -9,6 +9,8 @@ import {
   serverTimestamp,
   DocumentData,
   WithFieldValue,
+  getDoc,
+  doc,
 } from 'firebase/firestore';
 import { getFirebaseApp } from './get-firebase-app';
 
@@ -26,6 +28,18 @@ export interface Project extends DocumentData {
   createdAt: any;
   updatedAt: any;
 }
+
+export interface Task extends DocumentData {
+  id?: string;
+  projectId: string;
+  title: string;
+  description?: string;
+  status: 'backlog' | 'in_progress' | 'in_review' | 'done';
+  priority?: 'low' | 'medium' | 'high';
+  createdBy: string;
+  createdAt: any;
+}
+
 
 // ---- Funciones para Proyectos ----
 
@@ -68,5 +82,66 @@ export const getProjects = async (userId: string): Promise<Project[]> => {
   } catch (error) {
     console.error('Error getting projects: ', error);
     throw new Error('No se pudieron obtener los proyectos.');
+  }
+};
+
+/**
+ * Obtiene un único proyecto por su ID.
+ * @param projectId - El ID del proyecto.
+ * @returns El objeto del proyecto.
+ */
+export const getProject = async (projectId: string): Promise<Project | null> => {
+    try {
+        const docRef = doc(db, 'projects', projectId);
+        const docSnap = await getDoc(docRef);
+
+        if (docSnap.exists()) {
+            return { id: docSnap.id, ...docSnap.data() } as Project;
+        } else {
+            console.warn(`Project with ID ${projectId} not found.`);
+            return null;
+        }
+    } catch (error) {
+        console.error("Error getting project:", error);
+        throw new Error("No se pudo obtener el proyecto.");
+    }
+};
+
+
+// ---- Funciones para Tareas ----
+
+/**
+ * Crea una nueva tarea en Firestore.
+ */
+export const createTask = async (
+  taskData: Omit<Task, 'id' | 'createdAt'>
+): Promise<Task> => {
+  try {
+    const docRef = await addDoc(collection(db, 'tasks'), {
+      ...taskData,
+      createdAt: serverTimestamp(),
+    });
+    return { id: docRef.id, ...taskData, createdAt: new Date() };
+  } catch (error) {
+    console.error('Error creating task: ', error);
+    throw new Error('No se pudo crear la tarea.');
+  }
+};
+
+/**
+ * Obtiene todas las tareas para un proyecto específico.
+ */
+export const getTasks = async (projectId: string): Promise<Task[]> => {
+  try {
+    const q = query(collection(db, 'tasks'), where('projectId', '==', projectId));
+    const querySnapshot = await getDocs(q);
+    const tasks: Task[] = [];
+    querySnapshot.forEach((doc) => {
+      tasks.push({ id: doc.id, ...doc.data() } as Task);
+    });
+    return tasks;
+  } catch (error) {
+    console.error('Error getting tasks: ', error);
+    throw new Error('No se pudieron obtener las tareas.');
   }
 };
