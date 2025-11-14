@@ -15,7 +15,8 @@ import {
   deleteDoc,
   orderBy,
   Timestamp,
-  writeBatch
+  writeBatch,
+  onSnapshot
 } from 'firebase/firestore';
 import { getFirebaseApp } from './get-firebase-app';
 
@@ -106,6 +107,15 @@ export interface Notification extends DocumentData {
     link: string; // e.g., /projects/pid/tasks/tid
     read: boolean;
     createdAt: Timestamp;
+}
+
+export interface Comment extends DocumentData {
+  id: string;
+  text: string;
+  userId: string;
+  userName: string;
+  userAvatar: string;
+  createdAt: Timestamp;
 }
 
 
@@ -533,3 +543,44 @@ export const getNotifications = async (userId: string): Promise<Notification[]> 
     throw new Error('Could not get notifications.');
   }
 };
+
+
+// ---- Funciones para Comentarios ----
+
+/**
+ * Añade un nuevo comentario a una tarea.
+ */
+export const addComment = async (taskId: string, commentData: Omit<Comment, 'id' | 'createdAt'>): Promise<Comment> => {
+    try {
+        const commentsRef = collection(db, 'tasks', taskId, 'comments');
+        const docRef = await addDoc(commentsRef, {
+            ...commentData,
+            createdAt: serverTimestamp(),
+        });
+        const newComment = { id: docRef.id, ...commentData, createdAt: new Timestamp(Date.now() / 1000, 0) };
+        return newComment as Comment;
+    } catch (error) {
+        console.error("Error adding comment:", error);
+        throw new Error("Could not add comment.");
+    }
+}
+
+/**
+ * Escucha los comentarios de una tarea en tiempo real.
+ */
+export const getComments = (taskId: string, callback: (comments: Comment[]) => void): () => void => {
+    const commentsRef = collection(db, 'tasks', taskId, 'comments');
+    const q = query(commentsRef, orderBy('createdAt', 'asc'));
+
+    const unsubscribe = onSnapshot(q, (querySnapshot) => {
+        const comments: Comment[] = [];
+        querySnapshot.forEach((doc) => {
+            comments.push({ id: doc.id, ...doc.data() } as Comment);
+        });
+        callback(comments);
+    }, (error) => {
+        console.error("Error getting comments in real-time:", error);
+    });
+
+    return unsubscribe;
+}

@@ -4,8 +4,8 @@
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { PlusCircle, Loader2, ArrowUp, ArrowRight, ArrowDown } from 'lucide-react';
-import { Task, createTask, updateTaskStatus, TaskStatus, TaskPriority } from '@/lib/firebase/firestore';
+import { PlusCircle, Loader2, ArrowUp, ArrowRight, ArrowDown, MessageSquare } from 'lucide-react';
+import { Task, createTask, updateTaskStatus, TaskStatus, TaskPriority, Comment, addComment, getComments } from '@/lib/firebase/firestore';
 import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -24,6 +24,9 @@ import { DragDropContext, Droppable, Draggable, OnDragEndResponder } from '@hell
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { formatDistanceToNow } from 'date-fns';
+
 
 type ColumnId = TaskStatus;
 
@@ -101,6 +104,125 @@ function KanbanColumn({ title, tasks, columnId, onTaskClick }: { title: string; 
     </Card>
   );
 }
+
+function TaskDetailDialog({ task, isOpen, onOpenChange }: { task: Task | null; isOpen: boolean; onOpenChange: (open: boolean) => void; }) {
+    const { user } = useAuth();
+    const { toast } = useToast();
+    const [comments, setComments] = useState<Comment[]>([]);
+    const [newComment, setNewComment] = useState('');
+    const [isSubmittingComment, setIsSubmittingComment] = useState(false);
+
+    useEffect(() => {
+        if (task && isOpen) {
+            const unsubscribe = getComments(task.id, (newComments) => {
+                setComments(newComments);
+            });
+            return () => unsubscribe();
+        }
+    }, [task, isOpen]);
+
+    const handleAddComment = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!user || !task || !newComment.trim()) return;
+
+        setIsSubmittingComment(true);
+        try {
+            await addComment(task.id, {
+                userId: user.uid,
+                userName: user.displayName || 'Anonymous',
+                userAvatar: user.photoURL || '',
+                text: newComment,
+            });
+            setNewComment('');
+        } catch (error) {
+            console.error(error);
+            toast({ variant: 'destructive', title: 'Error', description: 'Could not post comment.' });
+        } finally {
+            setIsSubmittingComment(false);
+        }
+    };
+
+    if (!task) return null;
+
+    return (
+        <Dialog open={isOpen} onOpenChange={onOpenChange}>
+            <DialogContent className="sm:max-w-2xl">
+                <DialogHeader>
+                    <div className="flex items-center gap-2">
+                        {priorityIcons[task.priority]}
+                        <DialogTitle>{task.title}</DialogTitle>
+                    </div>
+                    <DialogDescription>
+                        Status: <Badge variant="secondary" className="capitalize">{task.status.replace('_', ' ')}</Badge>
+                        <span className="mx-2">·</span>
+                        Priority: <Badge variant={priorityBadges[task.priority]} className="capitalize">{task.priority}</Badge>
+                    </DialogDescription>
+                </DialogHeader>
+                <div className="py-4 space-y-6 max-h-[60vh] overflow-y-auto pr-4">
+                    <div className="text-sm">
+                        <p className="font-semibold text-foreground mb-1">Description</p>
+                        <div className="text-muted-foreground p-3 bg-muted rounded-md min-h-[60px]">
+                            {task.description ? (
+                                <p className="whitespace-pre-wrap">{task.description}</p>
+                            ) : (
+                                <p>No description provided.</p>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Comments Section */}
+                    <div className="space-y-4">
+                        <h4 className="font-semibold text-foreground flex items-center gap-2">
+                            <MessageSquare className="h-5 w-5"/>
+                            Comments
+                        </h4>
+                        <div className="space-y-4">
+                            {comments.map(comment => (
+                                <div key={comment.id} className="flex gap-3">
+                                    <Avatar className="h-8 w-8">
+                                        <AvatarImage src={comment.userAvatar} />
+                                        <AvatarFallback>{comment.userName.charAt(0)}</AvatarFallback>
+                                    </Avatar>
+                                    <div className="flex-1">
+                                        <div className="flex items-center gap-2">
+                                            <span className="font-semibold text-sm">{comment.userName}</span>
+                                            <span className="text-xs text-muted-foreground">
+                                                {comment.createdAt?.toDate && formatDistanceToNow(comment.createdAt.toDate(), { addSuffix: true })}
+                                            </span>
+                                        </div>
+                                        <p className="text-sm text-foreground bg-muted p-2 rounded-md mt-1">{comment.text}</p>
+                                    </div>
+                                </div>
+                            ))}
+                             {comments.length === 0 && (
+                                <p className="text-sm text-muted-foreground text-center py-4">No comments yet. Be the first to comment!</p>
+                            )}
+                        </div>
+
+                        <form onSubmit={handleAddComment} className="flex gap-2 items-start">
+                             <Avatar className="h-8 w-8">
+                                <AvatarImage src={user?.photoURL || undefined} />
+                                <AvatarFallback>{user?.displayName?.charAt(0) || 'U'}</AvatarFallback>
+                            </Avatar>
+                            <Textarea
+                                value={newComment}
+                                onChange={e => setNewComment(e.target.value)}
+                                placeholder="Write a comment..."
+                                disabled={isSubmittingComment}
+                                className="flex-1"
+                                rows={2}
+                            />
+                            <Button type="submit" disabled={isSubmittingComment || !newComment.trim()}>
+                                {isSubmittingComment ? <Loader2 className="animate-spin" /> : "Post"}
+                            </Button>
+                        </form>
+                    </div>
+                </div>
+            </DialogContent>
+        </Dialog>
+    );
+}
+
 
 export function KanbanBoard({ projectId, initialTasks }: { projectId: string; initialTasks: Task[] }) {
   const { user } = useAuth();
@@ -299,37 +421,17 @@ export function KanbanBoard({ projectId, initialTasks }: { projectId: string; in
         </div>
       </div>
       
-      <Dialog open={isDetailDialogOpen} onOpenChange={setIsDetailDialogOpen}>
-        <DialogContent className="sm:max-w-xl">
-          {selectedTask && (
-            <>
-              <DialogHeader>
-                 <div className="flex items-center gap-2">
-                    {priorityIcons[selectedTask.priority]}
-                    <DialogTitle>{selectedTask.title}</DialogTitle>
-                 </div>
-                <DialogDescription>
-                  Status: <Badge variant="secondary" className="capitalize">{selectedTask.status.replace('_', ' ')}</Badge>
-                   <span className="mx-2">·</span>
-                  Priority: <Badge variant={priorityBadges[selectedTask.priority]} className="capitalize">{selectedTask.priority}</Badge>
-                </DialogDescription>
-              </DialogHeader>
-              <div className="py-4 space-y-4">
-                <div className="text-sm text-muted-foreground">
-                    <p className="font-semibold text-foreground mb-1">Description</p>
-                    {selectedTask.description ? (
-                        <p className="whitespace-pre-wrap">{selectedTask.description}</p>
-                    ) : (
-                        <p>No description provided.</p>
-                    )}
-                </div>
-              </div>
-            </>
-          )}
-        </DialogContent>
-      </Dialog>
+      <TaskDetailDialog 
+        task={selectedTask}
+        isOpen={isDetailDialogOpen}
+        onOpenChange={(open) => {
+          if (!open) {
+            setSelectedTask(null);
+          }
+          setIsDetailDialogOpen(open);
+        }}
+      />
+
     </DragDropContext>
   );
 }
-
-    
