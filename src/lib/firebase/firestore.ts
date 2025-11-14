@@ -1,4 +1,5 @@
 
+
 import {
   getFirestore,
   collection,
@@ -617,6 +618,32 @@ export const updateTaskSprint = async (
   } catch (error) {
     console.error('Error updating task sprint: ', error);
     throw new Error('Could not update task sprint.');
+  }
+};
+
+/**
+ * Elimina una tarea o subtarea.
+ */
+export const deleteTask = async (
+  taskId: string,
+  taskTitle: string,
+  user: { uid: string, displayName: string | null }
+): Promise<void> => {
+  try {
+    const taskRef = doc(db, 'tasks', taskId);
+    await deleteDoc(taskRef);
+
+    await createAuditLog({
+      userId: user.uid,
+      userName: user.displayName || 'Anonymous',
+      action: `Deleted task "${taskTitle}"`,
+      entity: 'task',
+      entityId: taskId,
+      details: { title: taskTitle },
+    });
+  } catch (error) {
+    console.error('Error deleting task: ', error);
+    throw new Error('Could not delete the task.');
   }
 };
 

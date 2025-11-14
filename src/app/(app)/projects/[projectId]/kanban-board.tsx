@@ -1,11 +1,12 @@
 
+
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { PlusCircle, Loader2, ArrowUp, ArrowRight, ArrowDown, MessageSquare, Trash2, CheckSquare } from 'lucide-react';
-import { Task, createTask, updateTaskStatus, TaskStatus, TaskPriority, Comment, addComment, getComments, Sprint, updateTaskSprint, getProjectMembers, ProjectMember, TaskType } from '@/lib/firebase/firestore';
+import { Task, createTask, updateTaskStatus, TaskStatus, TaskPriority, Comment, addComment, getComments, Sprint, updateTaskSprint, getProjectMembers, ProjectMember, TaskType, deleteTask } from '@/lib/firebase/firestore';
 import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -17,6 +18,17 @@ import {
   DialogFooter,
   DialogTrigger,
 } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -128,7 +140,7 @@ function KanbanColumn({ title, tasks, subtasks, columnId, onTaskClick }: { title
   );
 }
 
-function TaskDetailDialog({ task, sprints, members, subtasks, isOpen, onOpenChange, onTaskUpdated, onSubtaskCreated }: { task: Task | null; sprints: Sprint[]; members: ProjectMember[]; subtasks: Task[]; isOpen: boolean; onOpenChange: (open: boolean) => void; onTaskUpdated: (updatedTask: Partial<Task> & {id: string}) => void; onSubtaskCreated: (newSubtask: Task) => void; }) {
+function TaskDetailDialog({ task, sprints, members, subtasks, isOpen, onOpenChange, onTaskUpdated, onSubtaskCreated, onSubtaskDeleted }: { task: Task | null; sprints: Sprint[]; members: ProjectMember[]; subtasks: Task[]; isOpen: boolean; onOpenChange: (open: boolean) => void; onTaskUpdated: (updatedTask: Partial<Task> & {id: string}) => void; onSubtaskCreated: (newSubtask: Task) => void; onSubtaskDeleted: (subtaskId: string) => void; }) {
     const { user } = useUser();
     const { toast } = useToast();
     const [comments, setComments] = useState<Comment[]>([]);
@@ -235,6 +247,19 @@ function TaskDetailDialog({ task, sprints, members, subtasks, isOpen, onOpenChan
         }
     };
 
+    const handleDeleteSubtask = async (subtask: Task) => {
+        if (!user) return;
+        
+        try {
+            await deleteTask(subtask.id, subtask.title, { uid: user.uid, displayName: user.displayName });
+            onSubtaskDeleted(subtask.id);
+            toast({ title: 'Subtask Deleted' });
+        } catch (error) {
+            console.error(error);
+            toast({ variant: 'destructive', title: 'Error', description: 'Could not delete subtask.' });
+        }
+    }
+
 
     if (!task) return null;
 
@@ -308,14 +333,32 @@ function TaskDetailDialog({ task, sprints, members, subtasks, isOpen, onOpenChan
                         )}
                         <div className="space-y-1 pl-2">
                             {relevantSubtasks.map(st => (
-                                <div key={st.id} className="flex items-center gap-2 p-1 rounded hover:bg-muted">
+                                <div key={st.id} className="flex items-center gap-2 p-1 rounded hover:bg-muted group">
                                     <Checkbox
                                         id={`subtask-${st.id}`}
                                         checked={st.status === 'done'}
                                         onCheckedChange={(checked) => handleSubtaskCheckedChange(st, !!checked)}
                                     />
                                     <label htmlFor={`subtask-${st.id}`} className={cn("text-sm flex-1", st.status === 'done' && 'line-through text-muted-foreground')}>{st.title}</label>
-                                    <Button variant="ghost" size="icon" className="h-6 w-6"><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                                    <AlertDialog>
+                                        <AlertDialogTrigger asChild>
+                                            <Button variant="ghost" size="icon" className="h-6 w-6 opacity-0 group-hover:opacity-100">
+                                                <Trash2 className="h-4 w-4 text-destructive" />
+                                            </Button>
+                                        </AlertDialogTrigger>
+                                        <AlertDialogContent>
+                                            <AlertDialogHeader>
+                                                <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                                                <AlertDialogDescription>
+                                                   This will permanently delete the subtask "{st.title}". This action cannot be undone.
+                                                </AlertDialogDescription>
+                                            </AlertDialogHeader>
+                                            <AlertDialogFooter>
+                                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                                <AlertDialogAction onClick={() => handleDeleteSubtask(st)} className="bg-destructive hover:bg-destructive/90">Delete</AlertDialogAction>
+                                            </AlertDialogFooter>
+                                        </AlertDialogContent>
+                                    </AlertDialog>
                                 </div>
                             ))}
                         </div>
@@ -511,6 +554,10 @@ export function KanbanBoard({ projectId, initialTasks, sprints, onTaskCreated, o
     onTaskCreated(newSubtask); // Use the main callback to add it to the global state
   };
 
+  const handleSubtaskDeleted = (subtaskId: string) => {
+    setTasks(prev => prev.filter(t => t.id !== subtaskId));
+  };
+
 
   if (!isBrowser) {
     return null; // Don't render DND on server
@@ -641,6 +688,7 @@ export function KanbanBoard({ projectId, initialTasks, sprints, onTaskCreated, o
         }}
         onTaskUpdated={handleInternalTaskUpdate}
         onSubtaskCreated={handleSubtaskCreated}
+        onSubtaskDeleted={handleSubtaskDeleted}
       />
 
     </DragDropContext>
