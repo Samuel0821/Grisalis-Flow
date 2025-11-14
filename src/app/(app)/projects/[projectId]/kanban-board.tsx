@@ -42,7 +42,7 @@ const priorityIcons: Record<TaskPriority, React.ReactNode> = {
   low: <ArrowDown className="text-green-500" />,
 };
 
-const priorityBadges: Record<TaskPriority, string> = {
+const priorityBadges: Record<TaskPriority, 'destructive' | 'secondary' | 'outline'> = {
     high: 'destructive',
     medium: 'secondary',
     low: 'outline',

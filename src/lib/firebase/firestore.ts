@@ -390,5 +390,3 @@ export const getWikiPageBySlug = async (slug: string): Promise<WikiPage | null> 
         throw new Error('Could not get wiki page.');
     }
 }
-
-    
