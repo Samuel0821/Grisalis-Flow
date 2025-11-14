@@ -9,6 +9,7 @@ import {
   ListTodo,
   Sparkles,
   Settings,
+  BarChart,
 } from 'lucide-react';
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
@@ -29,6 +30,7 @@ const navItems = [
   { href: '/projects', icon: Briefcase, label: 'Projects' },
   { href: '/bugs', icon: Bug, label: 'Bugs' },
   { href: '/timesheet', icon: Clock, label: 'Timesheet' },
+  { href: '/reports', icon: BarChart, label: 'Reports' },
   { href: '/wiki', icon: BookText, label: 'Wiki' },
   { href: '/summarizer', icon: Sparkles, label: 'AI Summarizer' },
 ];
