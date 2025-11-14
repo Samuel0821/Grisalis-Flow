@@ -1,11 +1,11 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { PlusCircle, Loader2, ArrowUp, ArrowRight, ArrowDown, MessageSquare } from 'lucide-react';
-import { Task, createTask, updateTaskStatus, TaskStatus, TaskPriority, Comment, addComment, getComments, Sprint, updateTaskSprint, getProjectMembers, ProjectMember } from '@/lib/firebase/firestore';
+import { PlusCircle, Loader2, ArrowUp, ArrowRight, ArrowDown, MessageSquare, Trash2, CheckSquare } from 'lucide-react';
+import { Task, createTask, updateTaskStatus, TaskStatus, TaskPriority, Comment, addComment, getComments, Sprint, updateTaskSprint, getProjectMembers, ProjectMember, TaskType } from '@/lib/firebase/firestore';
 import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -27,6 +27,8 @@ import { cn } from '@/lib/utils';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { formatDistanceToNow } from 'date-fns';
 import { useUser } from '@/firebase';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Progress } from '@/components/ui/progress';
 
 
 type ColumnId = TaskStatus;
@@ -52,7 +54,12 @@ const priorityBadges: Record<TaskPriority, 'destructive' | 'secondary' | 'outlin
     low: 'outline',
 }
 
-function KanbanColumn({ title, tasks, columnId, onTaskClick }: { title: string; tasks: Task[]; columnId: ColumnId; onTaskClick: (task: Task) => void; }) {
+function KanbanColumn({ title, tasks, subtasks, columnId, onTaskClick }: { title: string; tasks: Task[]; subtasks: Task[]; columnId: ColumnId; onTaskClick: (task: Task) => void; }) {
+
+  const getSubtasksForTask = (taskId: string) => {
+    return subtasks.filter(st => st.parentId === taskId);
+  }
+  
   return (
     <Card className="flex-1 flex flex-col bg-muted/50 max-h-[calc(100vh-22rem)]">
       <CardHeader>
@@ -71,28 +78,43 @@ function KanbanColumn({ title, tasks, columnId, onTaskClick }: { title: string; 
               snapshot.isDraggingOver ? 'bg-primary/10' : 'bg-transparent'
             )}
           >
-            {tasks.map((task, index) => (
-              <Draggable key={task.id} draggableId={task.id} index={index}>
-                {(provided, snapshot) => (
-                  <div
-                    ref={provided.innerRef}
-                    {...provided.draggableProps}
-                    {...provided.dragHandleProps}
-                    onClick={() => onTaskClick(task)}
-                    className="cursor-pointer"
-                  >
-                    <Card className={cn('p-4 shadow-sm', snapshot.isDragging && 'shadow-lg')}>
-                      <div className="flex items-start justify-between">
-                        <h4 className="font-medium pr-2">{task.title}</h4>
-                        {priorityIcons[task.priority]}
-                      </div>
-                      {task.description && <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{task.description}</p>}
-                       <Badge variant={priorityBadges[task.priority]} className="mt-2 capitalize">{task.priority}</Badge>
-                    </Card>
-                  </div>
-                )}
-              </Draggable>
-            ))}
+            {tasks.map((task, index) => {
+              const relevantSubtasks = getSubtasksForTask(task.id);
+              const completedSubtasks = relevantSubtasks.filter(st => st.status === 'done').length;
+
+              return (
+                <Draggable key={task.id} draggableId={task.id} index={index}>
+                  {(provided, snapshot) => (
+                    <div
+                      ref={provided.innerRef}
+                      {...provided.draggableProps}
+                      {...provided.dragHandleProps}
+                      onClick={() => onTaskClick(task)}
+                      className="cursor-pointer"
+                    >
+                      <Card className={cn('p-4 shadow-sm', snapshot.isDragging && 'shadow-lg')}>
+                        <div className="flex items-start justify-between">
+                          <h4 className="font-medium pr-2">{task.title}</h4>
+                          {priorityIcons[task.priority]}
+                        </div>
+                        {task.description && <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{task.description}</p>}
+                        
+                        <div className="flex items-center justify-between mt-2">
+                          <Badge variant={priorityBadges[task.priority]} className="capitalize">{task.priority}</Badge>
+                          {relevantSubtasks.length > 0 && (
+                            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                               <CheckSquare className="h-4 w-4" />
+                               <span>{completedSubtasks}/{relevantSubtasks.length}</span>
+                            </div>
+                          )}
+                        </div>
+
+                      </Card>
+                    </div>
+                  )}
+                </Draggable>
+              )
+            })}
             {provided.placeholder}
             {tasks.length === 0 && (
               <div className="flex justify-center items-center h-full text-sm text-muted-foreground p-4">
@@ -106,12 +128,26 @@ function KanbanColumn({ title, tasks, columnId, onTaskClick }: { title: string; 
   );
 }
 
-function TaskDetailDialog({ task, sprints, members, isOpen, onOpenChange, onTaskUpdated }: { task: Task | null; sprints: Sprint[]; members: ProjectMember[]; isOpen: boolean; onOpenChange: (open: boolean) => void; onTaskUpdated: (updatedTask: Partial<Task> & {id: string}) => void; }) {
+function TaskDetailDialog({ task, sprints, members, subtasks, isOpen, onOpenChange, onTaskUpdated, onSubtaskCreated }: { task: Task | null; sprints: Sprint[]; members: ProjectMember[]; subtasks: Task[]; isOpen: boolean; onOpenChange: (open: boolean) => void; onTaskUpdated: (updatedTask: Partial<Task> & {id: string}) => void; onSubtaskCreated: (newSubtask: Task) => void; }) {
     const { user } = useUser();
     const { toast } = useToast();
     const [comments, setComments] = useState<Comment[]>([]);
     const [newComment, setNewComment] = useState('');
     const [isSubmittingComment, setIsSubmittingComment] = useState(false);
+    const [newSubtaskTitle, setNewSubtaskTitle] = useState('');
+    const [isAddingSubtask, setIsAddingSubtask] = useState(false);
+
+    const relevantSubtasks = useMemo(() => {
+        if (!task) return [];
+        return subtasks.filter(st => st.parentId === task.id);
+    }, [task, subtasks]);
+
+    const completedSubtasksCount = useMemo(() => {
+        return relevantSubtasks.filter(st => st.status === 'done').length;
+    }, [relevantSubtasks]);
+
+    const subtaskProgress = relevantSubtasks.length > 0 ? (completedSubtasksCount / relevantSubtasks.length) * 100 : 0;
+
 
     useEffect(() => {
         if (task && isOpen) {
@@ -158,6 +194,47 @@ function TaskDetailDialog({ task, sprints, members, isOpen, onOpenChange, onTask
         toast({ variant: 'destructive', title: 'Error', description: 'Could not update task sprint.' });
       }
     };
+
+    const handleAddSubtask = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!user || !task || !newSubtaskTitle.trim()) return;
+
+        setIsAddingSubtask(true);
+        try {
+            const newSubtask = await createTask({
+                projectId: task.projectId,
+                parentId: task.id,
+                title: newSubtaskTitle,
+                status: 'todo',
+                priority: task.priority, // Inherit priority
+                type: 'subtask',
+                createdBy: user.uid,
+            }, { uid: user.uid, displayName: user.displayName });
+            onSubtaskCreated(newSubtask);
+            setNewSubtaskTitle('');
+        } catch(error) {
+            console.error(error);
+            toast({ variant: 'destructive', title: 'Error', description: 'Could not create subtask.' });
+        } finally {
+            setIsAddingSubtask(false);
+        }
+    }
+
+    const handleSubtaskCheckedChange = async (subtask: Task, isChecked: boolean) => {
+        if (!user) return;
+        const newStatus = isChecked ? 'done' : 'todo';
+        const oldStatus = subtask.status;
+
+        onTaskUpdated({ id: subtask.id, status: newStatus });
+
+        try {
+            await updateTaskStatus(subtask.id, subtask.title, newStatus, oldStatus, { uid: user.uid, displayName: user.displayName });
+        } catch (error) {
+            onTaskUpdated({ id: subtask.id, status: oldStatus });
+            toast({ variant: 'destructive', title: 'Error', description: 'Could not update subtask status.' });
+        }
+    };
+
 
     if (!task) return null;
 
@@ -216,6 +293,44 @@ function TaskDetailDialog({ task, sprints, members, isOpen, onOpenChange, onTask
                                 <p>No description provided.</p>
                             )}
                         </div>
+                    </div>
+
+                    {/* Subtasks Section */}
+                    <div className="space-y-2">
+                        <h4 className="font-semibold text-foreground flex items-center gap-2">
+                            <CheckSquare className="h-5 w-5"/>
+                            Subtasks
+                        </h4>
+                        {relevantSubtasks.length > 0 && (
+                            <div className='px-1'>
+                                <Progress value={subtaskProgress} className="h-2"/>
+                            </div>
+                        )}
+                        <div className="space-y-1 pl-2">
+                            {relevantSubtasks.map(st => (
+                                <div key={st.id} className="flex items-center gap-2 p-1 rounded hover:bg-muted">
+                                    <Checkbox
+                                        id={`subtask-${st.id}`}
+                                        checked={st.status === 'done'}
+                                        onCheckedChange={(checked) => handleSubtaskCheckedChange(st, !!checked)}
+                                    />
+                                    <label htmlFor={`subtask-${st.id}`} className={cn("text-sm flex-1", st.status === 'done' && 'line-through text-muted-foreground')}>{st.title}</label>
+                                    <Button variant="ghost" size="icon" className="h-6 w-6"><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                                </div>
+                            ))}
+                        </div>
+                         <form onSubmit={handleAddSubtask} className="flex gap-2 pt-2">
+                            <Input 
+                                value={newSubtaskTitle}
+                                onChange={e => setNewSubtaskTitle(e.target.value)}
+                                placeholder="Add a new subtask..."
+                                className="h-9"
+                                disabled={isAddingSubtask}
+                            />
+                            <Button type="submit" size="sm" disabled={isAddingSubtask || !newSubtaskTitle.trim()}>
+                                {isAddingSubtask ? <Loader2 className="animate-spin" /> : "Add"}
+                            </Button>
+                        </form>
                     </div>
 
                     {/* Comments Section */}
@@ -289,6 +404,9 @@ export function KanbanBoard({ projectId, initialTasks, sprints, onTaskCreated, o
   const [isBrowser, setIsBrowser] = useState(false);
   const [projectMembers, setProjectMembers] = useState<ProjectMember[]>([]);
 
+  const mainTasks = useMemo(() => tasks.filter(t => t.type === 'task'), [tasks]);
+  const subtasks = useMemo(() => tasks.filter(t => t.type === 'subtask'), [tasks]);
+
   useEffect(() => {
     setTasks(initialTasks);
   }, [initialTasks]);
@@ -333,6 +451,7 @@ export function KanbanBoard({ projectId, initialTasks, sprints, onTaskCreated, o
         description: newTaskDescription,
         status: 'backlog',
         priority: newTaskPriority,
+        type: 'task',
         createdBy: user.uid,
       };
       if (newTaskSprintId) {
@@ -387,6 +506,11 @@ export function KanbanBoard({ projectId, initialTasks, sprints, onTaskCreated, o
     setSelectedTask(prev => prev ? { ...prev, ...updatedTask } : null);
     onTaskUpdated(updatedTask);
   }
+
+  const handleSubtaskCreated = (newSubtask: Task) => {
+    onTaskCreated(newSubtask); // Use the main callback to add it to the global state
+  };
+
 
   if (!isBrowser) {
     return null; // Don't render DND on server
@@ -492,10 +616,11 @@ export function KanbanBoard({ projectId, initialTasks, sprints, onTaskCreated, o
               key={column.id}
               columnId={column.id}
               title={column.title}
-              tasks={tasks.filter((task) => task.status === column.id).sort((a,b) => {
+              tasks={mainTasks.filter((task) => task.status === column.id).sort((a,b) => {
                 const priorityOrder: Record<TaskPriority, number> = { high: 0, medium: 1, low: 2 };
                 return priorityOrder[a.priority] - priorityOrder[b.priority];
               })}
+              subtasks={subtasks}
               onTaskClick={handleTaskClick}
             />
           ))}
@@ -506,6 +631,7 @@ export function KanbanBoard({ projectId, initialTasks, sprints, onTaskCreated, o
         task={selectedTask}
         sprints={sprints}
         members={projectMembers}
+        subtasks={subtasks}
         isOpen={isDetailDialogOpen}
         onOpenChange={(open) => {
           if (!open) {
@@ -514,6 +640,7 @@ export function KanbanBoard({ projectId, initialTasks, sprints, onTaskCreated, o
           setIsDetailDialogOpen(open);
         }}
         onTaskUpdated={handleInternalTaskUpdate}
+        onSubtaskCreated={handleSubtaskCreated}
       />
 
     </DragDropContext>

@@ -48,11 +48,14 @@ export interface Project extends DocumentData {
 
 export type TaskStatus = 'backlog' | 'todo' | 'in_progress' | 'testing' | 'in_review' | 'done';
 export type TaskPriority = 'low' | 'medium' | 'high';
+export type TaskType = 'task' | 'subtask';
 
 export interface Task extends DocumentData {
   id: string;
   projectId: string;
   sprintId?: string;
+  parentId?: string;
+  type: TaskType;
   title: string;
   description?: string;
   status: TaskStatus;

@@ -132,6 +132,15 @@
           "type": "string",
           "description": "Reference to Sprint. (Relationship: Sprint 1:N Task). Can be null if the task is not in a sprint."
         },
+        "parentId": {
+          "type": "string",
+          "description": "Reference to parent Task if this is a subtask."
+        },
+        "type": {
+            "type": "string",
+            "enum": ["task", "subtask"],
+            "description": "The type of the item."
+        },
         "title": {
           "type": "string",
           "description": "Name of the task."
@@ -170,8 +179,8 @@
       "required": [
         "id",
         "projectId",
+        "type",
         "title",
-        "description",
         "status",
         "priority",
         "createdBy",
