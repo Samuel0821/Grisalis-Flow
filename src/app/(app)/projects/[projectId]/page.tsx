@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { getProject, Project, getTasks, Task } from '@/lib/firebase/firestore';
 import { useAuth } from '@/hooks/use-auth';
 import { Loader2 } from 'lucide-react';
@@ -21,7 +21,6 @@ export default function ProjectDetailsPage({ params }: { params: { projectId: st
         try {
           const projectData = await getProject(params.projectId);
           if (projectData) {
-            // Basic authorization check
             if (projectData.createdBy !== user.uid) {
               setError('No tienes permiso para ver este proyecto.');
             } else {
@@ -43,9 +42,7 @@ export default function ProjectDetailsPage({ params }: { params: { projectId: st
     }
   }, [user, params.projectId]);
 
-  const handleTaskCreated = (newTask: Task) => {
-    setTasks((prevTasks) => [...prevTasks, newTask]);
-  };
+  const initialTasks = useMemo(() => tasks, [tasks]);
 
   if (loading) {
     return (
@@ -68,12 +65,12 @@ export default function ProjectDetailsPage({ params }: { params: { projectId: st
   }
 
   return (
-    <div className="flex flex-col gap-8 h-full">
+    <div className="flex flex-col gap-8 h-[calc(100vh-12rem)]">
       <div className="flex flex-col gap-2">
         <h1 className="font-headline text-3xl font-bold tracking-tight">{project.name}</h1>
         <p className="text-muted-foreground">{project.description}</p>
       </div>
-      <KanbanBoard projectId={project.id!} initialTasks={tasks} onTaskCreated={handleTaskCreated} />
+      <KanbanBoard projectId={project.id!} initialTasks={initialTasks} />
     </div>
   );
 }

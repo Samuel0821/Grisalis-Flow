@@ -1,4 +1,3 @@
-
 import {
   getFirestore,
   collection,
@@ -11,6 +10,7 @@ import {
   WithFieldValue,
   getDoc,
   doc,
+  updateDoc,
 } from 'firebase/firestore';
 import { getFirebaseApp } from './get-firebase-app';
 
@@ -30,7 +30,7 @@ export interface Project extends DocumentData {
 }
 
 export interface Task extends DocumentData {
-  id?: string;
+  id: string;
   projectId: string;
   title: string;
   description?: string;
@@ -143,5 +143,23 @@ export const getTasks = async (projectId: string): Promise<Task[]> => {
   } catch (error) {
     console.error('Error getting tasks: ', error);
     throw new Error('No se pudieron obtener las tareas.');
+  }
+};
+
+/**
+ * Actualiza el estado de una tarea.
+ * @param taskId - El ID de la tarea a actualizar.
+ * @param status - El nuevo estado de la tarea.
+ */
+export const updateTaskStatus = async (
+  taskId: string,
+  status: Task['status']
+): Promise<void> => {
+  try {
+    const taskRef = doc(db, 'tasks', taskId);
+    await updateDoc(taskRef, { status });
+  } catch (error) {
+    console.error('Error updating task status: ', error);
+    throw new Error('No se pudo actualizar el estado de la tarea.');
   }
 };
