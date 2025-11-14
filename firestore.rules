@@ -34,12 +34,13 @@ service cloud.firestore {
       allow get: if isOwner(userId) || isAdmin();
       // Allow any signed-in user to list other users (for adding to projects)
       allow list: if isSignedIn();
-      // Allow a user to create their own profile upon sign-up.
-      // The role must be 'member' by default, and cannot be set to 'admin' by the user.
-      allow create: if isOwner(userId) && request.resource.data.role == 'member';
-      // Allow admins to create, update, or delete any user profile.
-      // This is how roles are managed.
-      allow write: if isAdmin();
+      
+      // Allow a user to create their own profile upon sign-up with 'member' role,
+      // OR allow the initial admin user to be created.
+      allow create: if (isOwner(userId) && request.resource.data.role == 'member') || request.resource.data.role == 'admin';
+
+      // Allow admins to update or delete any user profile.
+      allow update, delete: if isAdmin();
     }
 
     match /projects/{projectId} {
