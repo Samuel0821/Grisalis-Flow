@@ -29,13 +29,16 @@ export interface Project extends DocumentData {
   updatedAt: any;
 }
 
+export type TaskStatus = 'backlog' | 'in_progress' | 'in_review' | 'done';
+export type TaskPriority = 'low' | 'medium' | 'high';
+
 export interface Task extends DocumentData {
   id: string;
   projectId: string;
   title: string;
   description?: string;
-  status: 'backlog' | 'in_progress' | 'in_review' | 'done';
-  priority?: 'low' | 'medium' | 'high';
+  status: TaskStatus;
+  priority: TaskPriority;
   createdBy: string;
   createdAt: any;
 }

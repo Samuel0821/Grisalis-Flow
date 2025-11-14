@@ -4,8 +4,8 @@
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { PlusCircle, Loader2 } from 'lucide-react';
-import { Task, createTask, updateTaskStatus } from '@/lib/firebase/firestore';
+import { PlusCircle, Loader2, ArrowUp, ArrowRight, ArrowDown } from 'lucide-react';
+import { Task, createTask, updateTaskStatus, TaskStatus, TaskPriority } from '@/lib/firebase/firestore';
 import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -21,8 +21,11 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { DragDropContext, Droppable, Draggable, OnDragEndResponder } from '@hello-pangea/dnd';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Badge } from '@/components/ui/badge';
+import { cn } from '@/lib/utils';
 
-type ColumnId = Task['status'];
+type ColumnId = TaskStatus;
 
 const columns: { id: ColumnId; title: string }[] = [
   { id: 'backlog', title: 'Backlog' },
@@ -31,11 +34,26 @@ const columns: { id: ColumnId; title: string }[] = [
   { id: 'done', title: 'Done' },
 ];
 
+const priorityIcons: Record<TaskPriority, React.ReactNode> = {
+  high: <ArrowUp className="text-destructive" />,
+  medium: <ArrowRight className="text-yellow-500" />,
+  low: <ArrowDown className="text-green-500" />,
+};
+
+const priorityBadges: Record<TaskPriority, string> = {
+    high: 'destructive',
+    medium: 'secondary',
+    low: 'outline',
+}
+
 function KanbanColumn({ title, tasks, columnId, onTaskClick }: { title: string; tasks: Task[]; columnId: ColumnId; onTaskClick: (task: Task) => void; }) {
   return (
     <Card className="flex-1 flex flex-col bg-muted/50">
       <CardHeader>
-        <CardTitle className="text-lg">{title}</CardTitle>
+        <CardTitle className="text-lg flex items-center justify-between">
+          <span>{title}</span>
+          <span className="text-sm font-normal text-muted-foreground">{tasks.length}</span>
+        </CardTitle>
       </CardHeader>
       <Droppable droppableId={columnId}>
         {(provided, snapshot) => (
@@ -56,9 +74,13 @@ function KanbanColumn({ title, tasks, columnId, onTaskClick }: { title: string; 
                     onClick={() => onTaskClick(task)}
                     className="cursor-pointer"
                   >
-                    <Card className={`p-4 shadow-sm ${snapshot.isDragging ? 'shadow-lg' : ''}`}>
-                      <h4 className="font-medium">{task.title}</h4>
+                    <Card className={cn('p-4 shadow-sm', snapshot.isDragging && 'shadow-lg')}>
+                      <div className="flex items-start justify-between">
+                        <h4 className="font-medium pr-2">{task.title}</h4>
+                        {priorityIcons[task.priority]}
+                      </div>
                       {task.description && <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{task.description}</p>}
+                       <Badge variant={priorityBadges[task.priority]} className="mt-2 capitalize">{task.priority}</Badge>
                     </Card>
                   </div>
                 )}
@@ -85,8 +107,11 @@ export function KanbanBoard({ projectId, initialTasks }: { projectId: string; in
   const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  
   const [newTaskTitle, setNewTaskTitle] = useState('');
   const [newTaskDescription, setNewTaskDescription] = useState('');
+  const [newTaskPriority, setNewTaskPriority] = useState<TaskPriority>('medium');
+  
   const [isBrowser, setIsBrowser] = useState(false);
 
   useEffect(() => {
@@ -102,6 +127,12 @@ export function KanbanBoard({ projectId, initialTasks }: { projectId: string; in
     setTasks((prevTasks) => [...prevTasks, newTask]);
   };
   
+  const resetCreateForm = () => {
+    setNewTaskTitle('');
+    setNewTaskDescription('');
+    setNewTaskPriority('medium');
+  }
+
   const handleCreateTask = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) {
@@ -120,12 +151,12 @@ export function KanbanBoard({ projectId, initialTasks }: { projectId: string; in
         title: newTaskTitle,
         description: newTaskDescription,
         status: 'backlog',
+        priority: newTaskPriority,
         createdBy: user.uid,
       });
       handleTaskCreated(newTask);
       toast({ title: 'Success!', description: 'Task created.' });
-      setNewTaskTitle('');
-      setNewTaskDescription('');
+      resetCreateForm();
       setIsCreateDialogOpen(false);
     } catch (error) {
       console.error(error);
@@ -217,6 +248,21 @@ export function KanbanBoard({ projectId, initialTasks }: { projectId: string; in
                       disabled={isSubmitting}
                     />
                   </div>
+                   <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="priority" className="text-right">
+                      Priority
+                    </Label>
+                    <Select onValueChange={(value) => setNewTaskPriority(value as TaskPriority)} defaultValue="medium" disabled={isSubmitting}>
+                        <SelectTrigger className="col-span-3">
+                            <SelectValue placeholder="Select priority" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="low">Low</SelectItem>
+                            <SelectItem value="medium">Medium</SelectItem>
+                            <SelectItem value="high">High</SelectItem>
+                        </SelectContent>
+                    </Select>
+                  </div>
                 </div>
                 <DialogFooter>
                   <Button type="submit" disabled={isSubmitting}>
@@ -240,7 +286,10 @@ export function KanbanBoard({ projectId, initialTasks }: { projectId: string; in
               key={column.id}
               columnId={column.id}
               title={column.title}
-              tasks={tasks.filter((task) => task.status === column.id)}
+              tasks={tasks.filter((task) => task.status === column.id).sort((a,b) => {
+                const priorityOrder: Record<TaskPriority, number> = { high: 0, medium: 1, low: 2 };
+                return priorityOrder[a.priority] - priorityOrder[b.priority];
+              })}
               onTaskClick={handleTaskClick}
             />
           ))}
@@ -252,9 +301,14 @@ export function KanbanBoard({ projectId, initialTasks }: { projectId: string; in
           {selectedTask && (
             <>
               <DialogHeader>
-                <DialogTitle>{selectedTask.title}</DialogTitle>
+                 <div className="flex items-center gap-2">
+                    {priorityIcons[selectedTask.priority]}
+                    <DialogTitle>{selectedTask.title}</DialogTitle>
+                 </div>
                 <DialogDescription>
-                  Status: <span className="capitalize">{selectedTask.status.replace('_', ' ')}</span>
+                  Status: <Badge variant="secondary" className="capitalize">{selectedTask.status.replace('_', ' ')}</Badge>
+                   <span className="mx-2">·</span>
+                  Priority: <Badge variant={priorityBadges[selectedTask.priority]} className="capitalize">{selectedTask.priority}</Badge>
                 </DialogDescription>
               </DialogHeader>
               <div className="py-4 space-y-4">
