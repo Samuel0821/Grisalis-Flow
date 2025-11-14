@@ -15,6 +15,7 @@ import {
   DialogTitle,
   DialogDescription,
   DialogFooter,
+  DialogTrigger,
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -30,7 +31,7 @@ const columns: { id: ColumnId; title: string }[] = [
   { id: 'done', title: 'Done' },
 ];
 
-function KanbanColumn({ title, tasks, columnId }: { title: string; tasks: Task[]; columnId: ColumnId }) {
+function KanbanColumn({ title, tasks, columnId, onTaskClick }: { title: string; tasks: Task[]; columnId: ColumnId; onTaskClick: (task: Task) => void; }) {
   return (
     <Card className="flex-1 flex flex-col bg-muted/50">
       <CardHeader>
@@ -52,6 +53,8 @@ function KanbanColumn({ title, tasks, columnId }: { title: string; tasks: Task[]
                     ref={provided.innerRef}
                     {...provided.draggableProps}
                     {...provided.dragHandleProps}
+                    onClick={() => onTaskClick(task)}
+                    className="cursor-pointer"
                   >
                     <Card className={`p-4 shadow-sm ${snapshot.isDragging ? 'shadow-lg' : ''}`}>
                       <h4 className="font-medium">{task.title}</h4>
@@ -78,7 +81,9 @@ export function KanbanBoard({ projectId, initialTasks }: { projectId: string; in
   const { user } = useAuth();
   const { toast } = useToast();
   const [tasks, setTasks] = useState(initialTasks);
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false);
+  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [newTaskTitle, setNewTaskTitle] = useState('');
   const [newTaskDescription, setNewTaskDescription] = useState('');
@@ -87,6 +92,11 @@ export function KanbanBoard({ projectId, initialTasks }: { projectId: string; in
   useEffect(() => {
     setIsBrowser(true);
   }, []);
+  
+  const handleTaskClick = (task: Task) => {
+    setSelectedTask(task);
+    setIsDetailDialogOpen(true);
+  };
 
   const handleTaskCreated = (newTask: Task) => {
     setTasks((prevTasks) => [...prevTasks, newTask]);
@@ -116,7 +126,7 @@ export function KanbanBoard({ projectId, initialTasks }: { projectId: string; in
       toast({ title: 'Success!', description: 'Task created.' });
       setNewTaskTitle('');
       setNewTaskDescription('');
-      setIsDialogOpen(false);
+      setIsCreateDialogOpen(false);
     } catch (error) {
       console.error(error);
       toast({ variant: 'destructive', title: 'Error creating task' });
@@ -165,7 +175,7 @@ export function KanbanBoard({ projectId, initialTasks }: { projectId: string; in
     <DragDropContext onDragEnd={onDragEnd}>
       <div className="flex flex-col gap-4 h-full">
         <div className="flex justify-end">
-          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+          <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
             <DialogTrigger asChild>
               <Button>
                 <PlusCircle className="mr-2" />
@@ -231,10 +241,36 @@ export function KanbanBoard({ projectId, initialTasks }: { projectId: string; in
               columnId={column.id}
               title={column.title}
               tasks={tasks.filter((task) => task.status === column.id)}
+              onTaskClick={handleTaskClick}
             />
           ))}
         </div>
       </div>
+      
+      <Dialog open={isDetailDialogOpen} onOpenChange={setIsDetailDialogOpen}>
+        <DialogContent className="sm:max-w-xl">
+          {selectedTask && (
+            <>
+              <DialogHeader>
+                <DialogTitle>{selectedTask.title}</DialogTitle>
+                <DialogDescription>
+                  Status: <span className="capitalize">{selectedTask.status.replace('_', ' ')}</span>
+                </DialogDescription>
+              </DialogHeader>
+              <div className="py-4 space-y-4">
+                <div className="text-sm text-muted-foreground">
+                    <p className="font-semibold text-foreground mb-1">Description</p>
+                    {selectedTask.description ? (
+                        <p className="whitespace-pre-wrap">{selectedTask.description}</p>
+                    ) : (
+                        <p>No description provided.</p>
+                    )}
+                </div>
+              </div>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
     </DragDropContext>
   );
 }
