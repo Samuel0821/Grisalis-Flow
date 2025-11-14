@@ -123,7 +123,7 @@ export default function ProjectDetailsPage({ params }: { params: { projectId: st
           <TabsTrigger value="settings">Settings</TabsTrigger>
         </TabsList>
          <TabsContent value="dashboard" className="flex-1 mt-4">
-           <ProjectDashboard project={project} tasks={tasks} members={members} />
+           <ProjectDashboard project={project} tasks={tasks} members={members} sprints={initialSprints} />
         </TabsContent>
         <TabsContent value="kanban" className="flex-1 mt-4">
            <KanbanBoard 

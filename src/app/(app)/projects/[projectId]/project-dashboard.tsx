@@ -2,11 +2,11 @@
 'use client';
 
 import { useMemo } from 'react';
-import { Project, Task, ProjectMember, TaskStatus } from '@/lib/firebase/firestore';
+import { Project, Task, ProjectMember, TaskStatus, Sprint } from '@/lib/firebase/firestore';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { BarChart, Users, ListTodo, Bug, CheckCircle } from 'lucide-react';
+import { BarChart, Users, ListTodo, Bug, CheckCircle, TrendingDown } from 'lucide-react';
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
-import { Bar, XAxis, YAxis, ResponsiveContainer } from 'recharts';
+import { Bar, XAxis, YAxis, ResponsiveContainer, Line, ComposedChart, Area } from 'recharts';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
   Table,
@@ -16,6 +16,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { differenceInDays, format, isAfter } from 'date-fns';
 
 interface DashboardCardProps {
   title: string;
@@ -37,14 +38,95 @@ function DashboardCard({ title, value, icon }: DashboardCardProps) {
   );
 }
 
+function BurndownChart({ tasks, sprint }: { tasks: Task[]; sprint: Sprint | undefined }) {
+  const chartData = useMemo(() => {
+    if (!sprint || sprint.status !== 'active') return [];
+
+    const startDate = sprint.startDate.toDate();
+    const endDate = sprint.endDate.toDate();
+    const totalDays = differenceInDays(endDate, startDate);
+    const sprintTasks = tasks.filter(t => t.sprintId === sprint.id);
+    const totalTaskCount = sprintTasks.length;
+
+    if (totalTaskCount === 0) return [];
+
+    const data = [];
+    const tasksPerDayIdeal = totalTaskCount / (totalDays || 1);
+
+    for (let i = 0; i <= totalDays; i++) {
+      const currentDate = new Date(startDate);
+      currentDate.setDate(startDate.getDate() + i);
+      
+      const idealRemaining = Math.max(0, totalTaskCount - (tasksPerDayIdeal * i));
+
+      // Calculate actual remaining tasks
+      const remainingTasks = sprintTasks.filter(task => {
+        const taskCompletedAt = task.updatedAt?.toDate();
+        // A task is remaining if it's not 'done' OR if it was completed after the current day in the loop
+        return task.status !== 'done' || (taskCompletedAt && isAfter(taskCompletedAt, currentDate));
+      }).length;
+
+      data.push({
+        date: format(currentDate, 'MMM d'),
+        ideal: idealRemaining,
+        actual: remainingTasks,
+      });
+    }
+
+    return data;
+  }, [sprint, tasks]);
+
+  if (!sprint || sprint.status !== 'active') {
+    return (
+      <Card className='md:col-span-2'>
+        <CardHeader>
+            <CardTitle className="flex items-center gap-2"><TrendingDown /> Active Sprint Burndown</CardTitle>
+            <CardDescription>Progress of the currently active sprint.</CardDescription>
+        </CardHeader>
+        <CardContent className="flex items-center justify-center h-[250px] text-muted-foreground">
+            No active sprint to display.
+        </CardContent>
+      </Card>
+    )
+  }
+
+  return (
+    <Card className='md:col-span-2'>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2"><TrendingDown /> {sprint.name} - Burndown</CardTitle>
+        <CardDescription>
+          Ideal vs. actual progress for the active sprint.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <ChartContainer config={{}} className="h-[250px] w-full">
+          <ResponsiveContainer>
+            <ComposedChart data={chartData}>
+               <XAxis dataKey="date" tickLine={false} axisLine={false} tickMargin={8} fontSize={12} />
+               <YAxis domain={[0, 'dataMax + 2']} tickLine={false} axisLine={false} tickMargin={8} fontSize={12} allowDecimals={false} />
+              <ChartTooltip content={<ChartTooltipContent />} />
+              <Line type="monotone" dataKey="ideal" stroke="#8884d8" strokeDasharray="5 5" strokeWidth={2} dot={false} name="Ideal" />
+              <Line type="monotone" dataKey="actual" stroke="hsl(var(--primary))" strokeWidth={2} dot={false} name="Actual" />
+              <Area type="monotone" dataKey="actual" fill="hsl(var(--primary) / 0.1)" stroke="none" />
+            </ComposedChart>
+          </ResponsiveContainer>
+        </ChartContainer>
+      </CardContent>
+    </Card>
+  );
+}
+
+
 export function ProjectDashboard({
   project,
   tasks,
   members,
+  sprints
 }: {
   project: Project;
   tasks: Task[];
   members: ProjectMember[];
+  sprints: Sprint[];
 }) {
 
   const taskStatusCounts = useMemo(() => {
@@ -67,6 +149,9 @@ export function ProjectDashboard({
   const totalTasks = tasks.length;
   const doneTasks = taskStatusCounts.done;
   const completionPercentage = totalTasks > 0 ? Math.round((doneTasks / totalTasks) * 100) : 0;
+  
+  const activeSprint = useMemo(() => sprints.find(s => s.status === 'active'), [sprints]);
+
 
   const chartData = [
     { status: 'Backlog', count: taskStatusCounts.backlog, fill: 'var(--chart-1)' },
@@ -84,6 +169,10 @@ export function ProjectDashboard({
         <DashboardCard title="Project Members" value={members.length} icon={<Users className="h-4 w-4 text-muted-foreground" />} />
         <DashboardCard title="Open Bugs" value="0" icon={<Bug className="h-4 w-4 text-muted-foreground" />} />
         <DashboardCard title="Completion" value={`${completionPercentage}%`} icon={<CheckCircle className="h-4 w-4 text-muted-foreground" />} />
+      </div>
+
+      <div className="grid gap-6 md:grid-cols-2">
+         <BurndownChart tasks={tasks} sprint={activeSprint} />
       </div>
 
       <div className="grid gap-6 md:grid-cols-2">
