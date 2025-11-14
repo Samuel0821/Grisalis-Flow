@@ -71,6 +71,16 @@ export interface TimeLog extends DocumentData {
     date: Timestamp;
 }
 
+export interface WikiPage extends DocumentData {
+  id?: string;
+  title: string;
+  slug: string;
+  content: string;
+  createdBy: string;
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+}
+
 
 // ---- Funciones para Proyectos ----
 
@@ -315,3 +325,65 @@ export const getTimeLogs = async (userId: string): Promise<TimeLog[]> => {
     throw new Error('Could not get time logs.');
   }
 };
+
+
+// ---- Funciones para Wiki ----
+
+/**
+ * Crea una nueva página de Wiki.
+ */
+export const createWikiPage = async (
+  pageData: Omit<WikiPage, 'id' | 'createdAt' | 'updatedAt' | 'slug'>
+): Promise<WikiPage> => {
+  try {
+    const slug = pageData.title.toLowerCase().replace(/\s+/g, '-').replace(/[^\w-]+/g, '');
+    const docRef = await addDoc(collection(db, 'wiki'), {
+      ...pageData,
+      slug,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    });
+    
+    const docSnap = await getDoc(docRef);
+    return { id: docRef.id, ...docSnap.data() } as WikiPage;
+  } catch (error) {
+    console.error('Error creating wiki page: ', error);
+    throw new Error('Could not create wiki page.');
+  }
+};
+
+/**
+ * Obtiene todas las páginas de Wiki.
+ */
+export const getWikiPages = async (): Promise<WikiPage[]> => {
+  try {
+    const q = query(collection(db, 'wiki'), orderBy('title', 'asc'));
+    const querySnapshot = await getDocs(q);
+    const pages: WikiPage[] = [];
+    querySnapshot.forEach((doc) => {
+      pages.push({ id: doc.id, ...doc.data() } as WikiPage);
+    });
+    return pages;
+  } catch (error) {
+    console.error('Error getting wiki pages: ', error);
+    throw new Error('Could not get wiki pages.');
+  }
+};
+
+/**
+ * Obtiene una página de Wiki por su slug.
+ */
+export const getWikiPageBySlug = async (slug: string): Promise<WikiPage | null> => {
+    try {
+        const q = query(collection(db, 'wiki'), where('slug', '==', slug));
+        const querySnapshot = await getDocs(q);
+        if (querySnapshot.empty) {
+            return null;
+        }
+        const docSnap = querySnapshot.docs[0];
+        return { id: docSnap.id, ...docSnap.data() } as WikiPage;
+    } catch (error) {
+        console.error('Error getting wiki page by slug: ', error);
+        throw new Error('Could not get wiki page.');
+    }
+}
