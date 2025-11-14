@@ -1,3 +1,4 @@
+
 'use client';
 import {
   DropdownMenu,
@@ -15,19 +16,43 @@ import {
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import { Bell, Search } from 'lucide-react';
+import { Bell, Search, Mail } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { getAuth } from 'firebase/auth';
 import { useRouter } from 'next/navigation';
 import { useUser } from '@/firebase';
 import Link from 'next/link';
-import { Badge } from '@/components/ui/badge';
+import { useEffect, useState } from 'react';
+import { Notification, getNotifications, markNotificationAsRead, markAllNotificationsAsRead } from '@/lib/firebase/firestore';
+import { formatDistanceToNow } from 'date-fns';
+import { cn } from '@/lib/utils';
+import { ScrollArea } from '../ui/scroll-area';
 
 function NotificationPanel() {
-  // This is a placeholder. In the future, we'll fetch real notifications.
-  const notifications: any[] = [];
+  const { user } = useUser();
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+
+  useEffect(() => {
+    if (user) {
+      const unsubscribe = getNotifications(user.uid, (newNotifications) => {
+        setNotifications(newNotifications);
+      });
+      return () => unsubscribe();
+    }
+  }, [user]);
+
   const hasUnread = notifications.some(n => !n.read);
+
+  const handleMarkAsRead = async (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    await markNotificationAsRead(id);
+  };
+  
+  const handleMarkAllAsRead = async () => {
+    if (!user) return;
+    await markAllNotificationsAsRead(user.uid);
+  }
 
   return (
     <Popover>
@@ -42,19 +67,45 @@ function NotificationPanel() {
           )}
         </Button>
       </PopoverTrigger>
-      <PopoverContent align="end" className="w-80 p-0">
-        <div className="p-4 font-medium border-b">
+      <PopoverContent align="end" className="w-96 p-0">
+        <div className="flex items-center justify-between p-4 font-medium border-b">
           <h4>Notifications</h4>
+          {hasUnread && <Button variant="link" size="sm" onClick={handleMarkAllAsRead}>Mark all as read</Button>}
         </div>
-        <div className="p-4 text-sm text-center text-muted-foreground">
-          {notifications.length === 0
-            ? 'You have no new notifications.'
-            : 'Notification list will go here.'
-            // We will map over notifications here in a future step.
-            }
-        </div>
+        <ScrollArea className="h-80">
+          {notifications.length === 0 ? (
+             <div className="p-4 text-sm text-center text-muted-foreground">
+                You have no new notifications.
+             </div>
+          ) : (
+             <div className="divide-y">
+              {notifications.map(n => (
+                <div key={n.id} className={cn("p-4 hover:bg-muted/50", !n.read && "bg-primary/5")}>
+                    <Link href={n.link} className="block">
+                       <div className="flex items-start gap-3">
+                         <div className="flex-shrink-0 pt-1">
+                            <div className={cn("h-2.5 w-2.5 rounded-full", n.read ? "bg-transparent" : "bg-primary")}></div>
+                         </div>
+                         <div className="flex-1">
+                            <p className="text-sm">{n.message}</p>
+                             <p className="text-xs text-muted-foreground mt-1">
+                               {n.createdAt && formatDistanceToNow(n.createdAt.toDate(), { addSuffix: true })}
+                            </p>
+                         </div>
+                         {!n.read && (
+                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={(e) => handleMarkAsRead(n.id, e)} title="Mark as read">
+                               <Mail className="h-4 w-4"/>
+                            </Button>
+                         )}
+                       </div>
+                    </Link>
+                </div>
+              ))}
+            </div>
+          )}
+        </ScrollArea>
         <div className="p-2 border-t text-center">
-            <Button variant="link" size="sm">View all notifications</Button>
+            <Button variant="link" size="sm" disabled>View all notifications</Button>
         </div>
       </PopoverContent>
     </Popover>
@@ -113,5 +164,3 @@ export function Header() {
     </header>
   );
 }
-
-    

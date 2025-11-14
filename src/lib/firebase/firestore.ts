@@ -19,6 +19,7 @@ import {
   onSnapshot,
   collectionGroup,
   setDoc,
+  limit,
 } from 'firebase/firestore';
 import { initializeFirebase } from '@/firebase';
 
@@ -56,6 +57,7 @@ export interface Task extends DocumentData {
   description?: string;
   status: TaskStatus;
   priority: TaskPriority;
+  assigneeId?: string;
   createdBy: string;
   createdAt: any;
 }
@@ -142,7 +144,7 @@ export interface AuditLog extends DocumentData {
   userId: string;
   userName: string;
   action: string;
-  entity: 'project' | 'task' | 'bug' | 'sprint' | 'wiki' | 'user';
+  entity: 'project' | 'task' | 'bug' | 'sprint' | 'wiki' | 'user' | 'notification';
   entityId: string;
   details: any;
   timestamp: Timestamp;
@@ -468,6 +470,25 @@ export const removeProjectMember = async (projectId: string, userId: string, mem
 // ---- Funciones para Tareas ----
 
 /**
+ * Obtiene una única tarea por su ID.
+ */
+export const getTask = async (taskId: string): Promise<Task | null> => {
+    try {
+        const docRef = doc(db, 'tasks', taskId);
+        const docSnap = await getDoc(docRef);
+
+        if (docSnap.exists()) {
+            return { id: docSnap.id, ...docSnap.data() } as Task;
+        } else {
+            return null;
+        }
+    } catch (error) {
+        console.error("Error getting task:", error);
+        throw new Error("Could not get the task.");
+    }
+};
+
+/**
  * Crea una nueva tarea en Firestore.
  */
 export const createTask = async (
@@ -592,7 +613,7 @@ export const updateTaskSprint = async (
     // We can consider adding an audit log here if needed
   } catch (error) {
     console.error('Error updating task sprint: ', error);
-    throw new Error('Could not update the task sprint.');
+    throw new Error('Could not update task sprint.');
   }
 };
 
@@ -980,22 +1001,71 @@ export const updateSprintStatus = async (
 // ---- Funciones para Notificaciones ----
 
 /**
- * Obtiene las notificaciones para un usuario específico.
+ * Crea una nueva notificación en Firestore.
  */
-export const getNotifications = async (userId: string): Promise<Notification[]> => {
-  try {
-    const q = query(collection(db, 'notifications'), where('userId', '==', userId), orderBy('createdAt', 'desc'));
-    const querySnapshot = await getDocs(q);
-    const notifications: Notification[] = [];
-    querySnapshot.forEach((doc) => {
-      notifications.push({ id: doc.id, ...doc.data() } as Notification);
-    });
-    return notifications;
-  } catch (error) {
-    console.error('Error getting notifications: ', error);
-    throw new Error('Could not get notifications.');
-  }
+export const createNotification = async (notificationData: Omit<Notification, 'id' | 'createdAt' | 'read'>): Promise<void> => {
+    try {
+        await addDoc(collection(db, 'notifications'), {
+            ...notificationData,
+            read: false,
+            createdAt: serverTimestamp(),
+        });
+    } catch (error) {
+        console.error("Error creating notification:", error);
+        // Silently fail to not interrupt user flow
+    }
 };
+
+/**
+ * Escucha las notificaciones para un usuario en tiempo real.
+ */
+export const getNotifications = (userId: string, callback: (notifications: Notification[]) => void): () => void => {
+    const q = query(collection(db, 'notifications'), where('userId', '==', userId), orderBy('createdAt', 'desc'), limit(20));
+
+    const unsubscribe = onSnapshot(q, (querySnapshot) => {
+        const notifications: Notification[] = [];
+        querySnapshot.forEach((doc) => {
+            notifications.push({ id: doc.id, ...doc.data() } as Notification);
+        });
+        callback(notifications);
+    }, (error) => {
+        console.error("Error getting notifications in real-time:", error);
+    });
+
+    return unsubscribe;
+};
+
+/**
+ * Marca una notificación como leída.
+ */
+export const markNotificationAsRead = async (notificationId: string): Promise<void> => {
+    try {
+        const notificationRef = doc(db, 'notifications', notificationId);
+        await updateDoc(notificationRef, { read: true });
+    } catch (error) {
+        console.error("Error marking notification as read:", error);
+        throw new Error("Could not update notification.");
+    }
+};
+
+/**
+ * Marca todas las notificaciones de un usuario como leídas.
+ */
+export const markAllNotificationsAsRead = async (userId: string): Promise<void> => {
+    const q = query(collection(db, 'notifications'), where('userId', '==', userId), where('read', '==', false));
+    try {
+        const querySnapshot = await getDocs(q);
+        const batch = writeBatch(db);
+        querySnapshot.docs.forEach(doc => {
+            batch.update(doc.ref, { read: true });
+        });
+        await batch.commit();
+    } catch (error) {
+        console.error("Error marking all notifications as read:", error);
+        throw new Error("Could not update all notifications.");
+    }
+}
+
 
 
 // ---- Funciones para Comentarios ----
@@ -1005,6 +1075,11 @@ export const getNotifications = async (userId: string): Promise<Notification[]> 
  */
 export const addComment = async (taskId: string, commentData: Omit<Comment, 'id' | 'createdAt'>): Promise<Comment> => {
     try {
+        const task = await getTask(taskId);
+        if (!task) {
+            throw new Error("Task not found to add comment.");
+        }
+
         const commentsRef = collection(db, 'tasks', taskId, 'comments');
         const docRef = doc(commentsRef);
         const newComment = {
@@ -1013,6 +1088,17 @@ export const addComment = async (taskId: string, commentData: Omit<Comment, 'id'
             createdAt: serverTimestamp(),
         };
         await setDoc(docRef, newComment);
+
+        // Create a notification for the task assignee, if they are not the one commenting
+        if (task.assigneeId && task.assigneeId !== commentData.userId) {
+            await createNotification({
+                userId: task.assigneeId,
+                type: 'comment',
+                message: `${commentData.userName} commented on task: "${task.title}"`,
+                link: `/projects/${task.projectId}` // Link to the project board for now
+            });
+        }
+
         return { ...newComment, createdAt: new Timestamp(Date.now() / 1000, 0) } as Comment;
     } catch (error) {
         console.error("Error adding comment:", error);

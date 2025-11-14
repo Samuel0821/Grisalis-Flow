@@ -5,7 +5,7 @@ import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { PlusCircle, Loader2, ArrowUp, ArrowRight, ArrowDown, MessageSquare } from 'lucide-react';
-import { Task, createTask, updateTaskStatus, TaskStatus, TaskPriority, Comment, addComment, getComments, Sprint, updateTaskSprint } from '@/lib/firebase/firestore';
+import { Task, createTask, updateTaskStatus, TaskStatus, TaskPriority, Comment, addComment, getComments, Sprint, updateTaskSprint, getProjectMembers, ProjectMember } from '@/lib/firebase/firestore';
 import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -26,6 +26,7 @@ import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { formatDistanceToNow } from 'date-fns';
+import { useUser } from '@/firebase';
 
 
 type ColumnId = TaskStatus;
@@ -105,8 +106,8 @@ function KanbanColumn({ title, tasks, columnId, onTaskClick }: { title: string; 
   );
 }
 
-function TaskDetailDialog({ task, sprints, isOpen, onOpenChange, onTaskUpdated }: { task: Task | null; sprints: Sprint[]; isOpen: boolean; onOpenChange: (open: boolean) => void; onTaskUpdated: (updatedTask: Partial<Task> & {id: string}) => void; }) {
-    const { user } = useAuth();
+function TaskDetailDialog({ task, sprints, members, isOpen, onOpenChange, onTaskUpdated }: { task: Task | null; sprints: Sprint[]; members: ProjectMember[]; isOpen: boolean; onOpenChange: (open: boolean) => void; onTaskUpdated: (updatedTask: Partial<Task> & {id: string}) => void; }) {
+    const { user } = useUser();
     const { toast } = useToast();
     const [comments, setComments] = useState<Comment[]>([]);
     const [newComment, setNewComment] = useState('');
@@ -190,6 +191,20 @@ function TaskDetailDialog({ task, sprints, isOpen, onOpenChange, onTaskUpdated }
                                 </SelectContent>
                             </Select>
                         </div>
+                         <div className="text-sm">
+                            <Label className="font-semibold text-foreground mb-1">Assignee</Label>
+                             <Select value={task.assigneeId || 'none'}>
+                                <SelectTrigger>
+                                    <SelectValue placeholder="Assign to a member" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="none">Unassigned</SelectItem>
+                                    {members.map(member => (
+                                        <SelectItem key={member.userId} value={member.userId}>{member.displayName}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
                     </div>
 
                     <div className="text-sm">
@@ -258,7 +273,7 @@ function TaskDetailDialog({ task, sprints, isOpen, onOpenChange, onTaskUpdated }
 
 
 export function KanbanBoard({ projectId, initialTasks, sprints, onTaskCreated, onTaskUpdated }: { projectId: string; initialTasks: Task[]; sprints: Sprint[]; onTaskCreated: (task: Task) => void; onTaskUpdated: (updatedTask: Partial<Task> & {id: string}) => void; }) {
-  const { user } = useAuth();
+  const { user } = useUser();
   const { toast } = useToast();
   const [tasks, setTasks] = useState(initialTasks);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
@@ -272,14 +287,20 @@ export function KanbanBoard({ projectId, initialTasks, sprints, onTaskCreated, o
   const [newTaskSprintId, setNewTaskSprintId] = useState<string>('');
   
   const [isBrowser, setIsBrowser] = useState(false);
-  
+  const [projectMembers, setProjectMembers] = useState<ProjectMember[]>([]);
+
   useEffect(() => {
     setTasks(initialTasks);
   }, [initialTasks]);
 
   useEffect(() => {
     setIsBrowser(true);
-  }, []);
+    const fetchMembers = async () => {
+        const members = await getProjectMembers(projectId);
+        setProjectMembers(members);
+    }
+    fetchMembers();
+  }, [projectId]);
   
   const handleTaskClick = (task: Task) => {
     setSelectedTask(task);
@@ -484,6 +505,7 @@ export function KanbanBoard({ projectId, initialTasks, sprints, onTaskCreated, o
       <TaskDetailDialog 
         task={selectedTask}
         sprints={sprints}
+        members={projectMembers}
         isOpen={isDetailDialogOpen}
         onOpenChange={(open) => {
           if (!open) {
@@ -497,4 +519,3 @@ export function KanbanBoard({ projectId, initialTasks, sprints, onTaskCreated, o
     </DragDropContext>
   );
 }
-
