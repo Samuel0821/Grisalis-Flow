@@ -161,6 +161,11 @@
           "type": "string",
           "description": "Reference to User assigned to the task. (Relationship: User 1:N Task)"
         },
+        "attachmentUrl": {
+            "type": "string",
+            "description": "URL to an image, video or file related to the task.",
+            "format": "uri"
+        },
         "createdBy": {
             "type": "string",
             "description": "User ID of the task creator."

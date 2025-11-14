@@ -5,8 +5,8 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { PlusCircle, Loader2, ArrowUp, ArrowRight, ArrowDown, MessageSquare, Trash2, CheckSquare } from 'lucide-react';
-import { Task, createTask, updateTaskStatus, TaskStatus, TaskPriority, Comment, addComment, getComments, Sprint, updateTaskSprint, getProjectMembers, ProjectMember, TaskType, deleteTask } from '@/lib/firebase/firestore';
+import { PlusCircle, Loader2, ArrowUp, ArrowRight, ArrowDown, MessageSquare, Trash2, CheckSquare, Link as LinkIcon, ExternalLink } from 'lucide-react';
+import { Task, createTask, updateTask, updateTaskStatus, TaskStatus, TaskPriority, Comment, addComment, getComments, Sprint, ProjectMember, TaskType, deleteTask } from '@/lib/firebase/firestore';
 import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -41,6 +41,8 @@ import { formatDistanceToNow } from 'date-fns';
 import { useUser } from '@/firebase';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Progress } from '@/components/ui/progress';
+import Image from 'next/image';
+import Link from 'next/link';
 
 
 type ColumnId = TaskStatus;
@@ -149,6 +151,12 @@ function TaskDetailDialog({ task, sprints, members, subtasks, isOpen, onOpenChan
     const [newSubtaskTitle, setNewSubtaskTitle] = useState('');
     const [isAddingSubtask, setIsAddingSubtask] = useState(false);
 
+    // Editable fields
+    const [assigneeId, setAssigneeId] = useState(task?.assigneeId || 'none');
+    const [sprintId, setSprintId] = useState(task?.sprintId || 'none');
+    const [attachmentUrl, setAttachmentUrl] = useState(task?.attachmentUrl || '');
+
+
     const relevantSubtasks = useMemo(() => {
         if (!task) return [];
         return subtasks.filter(st => st.parentId === task.id);
@@ -159,16 +167,38 @@ function TaskDetailDialog({ task, sprints, members, subtasks, isOpen, onOpenChan
     }, [relevantSubtasks]);
 
     const subtaskProgress = relevantSubtasks.length > 0 ? (completedSubtasksCount / relevantSubtasks.length) * 100 : 0;
+    
+    const isImageUrl = (url: string) => /\.(jpg|jpeg|png|gif|webp)$/.test(url);
 
 
     useEffect(() => {
         if (task && isOpen) {
+            setAssigneeId(task.assigneeId || 'none');
+            setSprintId(task.sprintId || 'none');
+            setAttachmentUrl(task.attachmentUrl || '');
+
             const unsubscribe = getComments(task.id, (newComments) => {
                 setComments(newComments);
             });
             return () => unsubscribe();
         }
     }, [task, isOpen]);
+    
+    const handleFieldUpdate = async (field: keyof Task, value: any) => {
+        if (!task || !user) return;
+        const originalValue = task[field];
+        
+        onTaskUpdated({ id: task.id, [field]: value });
+
+        try {
+            await updateTask(task.id, { [field]: value, title: task.title, projectId: task.projectId }, { uid: user.uid, displayName: user.displayName });
+            toast({ title: 'Task Updated', description: `Task ${field} has been updated.`});
+        } catch (error) {
+            console.error(error);
+            onTaskUpdated({ id: task.id, [field]: originalValue });
+            toast({ variant: 'destructive', title: 'Error', description: 'Could not update task.' });
+        }
+    };
 
     const handleAddComment = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -189,22 +219,6 @@ function TaskDetailDialog({ task, sprints, members, subtasks, isOpen, onOpenChan
         } finally {
             setIsSubmittingComment(false);
         }
-    };
-    
-    const handleSprintChange = async (sprintId: string | null) => {
-      if (!task || !user) return;
-      const originalSprintId = task.sprintId;
-      
-      onTaskUpdated({ id: task.id, sprintId: sprintId || undefined });
-      
-      try {
-        await updateTaskSprint(task.id, sprintId, { uid: user.uid, displayName: user.displayName });
-        toast({ title: 'Sprint Updated', description: `Task has been moved to a new sprint.`});
-      } catch (error) {
-        console.error(error);
-        onTaskUpdated({ id: task.id, sprintId: originalSprintId });
-        toast({ variant: 'destructive', title: 'Error', description: 'Could not update task sprint.' });
-      }
     };
 
     const handleAddSubtask = async (e: React.FormEvent) => {
@@ -281,7 +295,7 @@ function TaskDetailDialog({ task, sprints, members, subtasks, isOpen, onOpenChan
                     <div className="grid grid-cols-2 gap-4">
                         <div className="text-sm">
                             <Label className="font-semibold text-foreground mb-1">Sprint</Label>
-                             <Select onValueChange={(val) => handleSprintChange(val === 'none' ? null : val)} value={task.sprintId || 'none'}>
+                             <Select onValueChange={(val) => { setSprintId(val); handleFieldUpdate('sprintId', val === 'none' ? null : val); }} value={sprintId}>
                                 <SelectTrigger>
                                     <SelectValue placeholder="Assign to a sprint" />
                                 </SelectTrigger>
@@ -295,7 +309,7 @@ function TaskDetailDialog({ task, sprints, members, subtasks, isOpen, onOpenChan
                         </div>
                          <div className="text-sm">
                             <Label className="font-semibold text-foreground mb-1">Assignee</Label>
-                             <Select value={task.assigneeId || 'none'}>
+                             <Select onValueChange={(val) => { setAssigneeId(val); handleFieldUpdate('assigneeId', val === 'none' ? null : val); }} value={assigneeId}>
                                 <SelectTrigger>
                                     <SelectValue placeholder="Assign to a member" />
                                 </SelectTrigger>
@@ -318,6 +332,34 @@ function TaskDetailDialog({ task, sprints, members, subtasks, isOpen, onOpenChan
                                 <p>No description provided.</p>
                             )}
                         </div>
+                    </div>
+
+                    <div className="text-sm">
+                        <Label htmlFor="attachment" className="font-semibold text-foreground mb-1">Attachment</Label>
+                        <div className="flex items-center gap-2">
+                             <LinkIcon className="h-4 w-4 text-muted-foreground" />
+                             <Input
+                                id="attachment"
+                                value={attachmentUrl}
+                                onChange={(e) => setAttachmentUrl(e.target.value)}
+                                onBlur={() => handleFieldUpdate('attachmentUrl', attachmentUrl)}
+                                className="flex-1"
+                                placeholder="https://example.com/file"
+                            />
+                        </div>
+                        {attachmentUrl && (
+                            <div className="mt-2">
+                                {isImageUrl(attachmentUrl) ? (
+                                    <div className="p-2 border rounded-md max-w-sm">
+                                        <Image src={attachmentUrl} alt="Attachment for task" width={500} height={300} className="rounded-md object-contain" />
+                                    </div>
+                                ) : (
+                                    <Link href={attachmentUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-primary hover:underline">
+                                        View Attachment <ExternalLink className="h-4 w-4"/>
+                                    </Link>
+                                )}
+                            </div>
+                        )}
                     </div>
 
                     {/* Subtasks Section */}

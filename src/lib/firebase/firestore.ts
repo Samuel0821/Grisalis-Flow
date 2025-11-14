@@ -62,6 +62,7 @@ export interface Task extends DocumentData {
   status: TaskStatus;
   priority: TaskPriority;
   assigneeId?: string;
+  attachmentUrl?: string; // Adjunto para tareas
   createdBy: string;
   createdAt: any;
 }
@@ -603,23 +604,46 @@ export const updateTaskStatus = async (
 };
 
 /**
- * Actualiza el sprint de una tarea.
+ * Actualiza una tarea con datos parciales.
  */
-export const updateTaskSprint = async (
+export const updateTask = async (
   taskId: string,
-  sprintId: string | null,
+  taskData: Partial<Task>,
   user: { uid: string, displayName: string | null }
 ): Promise<void> => {
   try {
     const taskRef = doc(db, 'tasks', taskId);
-    await updateDoc(taskRef, { sprintId: sprintId || null, updatedAt: serverTimestamp() });
+    await updateDoc(taskRef, {
+      ...taskData,
+      updatedAt: serverTimestamp(),
+    });
     
-    // We can consider adding an audit log here if needed
+    // Example: Audit log for assignment change
+    if(taskData.assigneeId) {
+        const assignee = await getUserProfile(taskData.assigneeId);
+         await createAuditLog({
+            userId: user.uid,
+            userName: user.displayName || 'Anonymous',
+            action: `Assigned task to ${assignee?.displayName || 'N/A'}`,
+            entity: 'task',
+            entityId: taskId,
+            details: { assigneeId: taskData.assigneeId }
+        });
+        // Create notification for assignment
+        await createNotification({
+            userId: taskData.assigneeId,
+            type: 'task_assigned',
+            message: `You have been assigned a new task: "${taskData.title}"`,
+            link: `/projects/${taskData.projectId}` // Adjust link as needed
+        });
+    }
+
   } catch (error) {
-    console.error('Error updating task sprint: ', error);
-    throw new Error('Could not update task sprint.');
+    console.error('Error updating task: ', error);
+    throw new Error('Could not update task.');
   }
 };
+
 
 /**
  * Elimina una tarea o subtarea.
@@ -675,6 +699,19 @@ export const createBug = async (
         entityId: docRef.id,
         details: { projectId: bugData.projectId, title: bugData.title }
     });
+
+    if (bugData.severity === 'critical') {
+        const project = await getProject(bugData.projectId);
+        if (project && project.createdBy) {
+            await createNotification({
+                userId: project.createdBy,
+                type: 'bug_critical',
+                message: `A critical bug "${bugData.title}" has been reported in project ${project.name}.`,
+                link: `/bugs` // Or a more specific link to the bug page
+            });
+        }
+    }
+    
     return { ...newBugData, createdAt: new Date(), updatedAt: new Date() } as Bug;
   } catch (error) {
     console.error('Error creating bug: ', error);
