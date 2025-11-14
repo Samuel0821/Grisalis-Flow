@@ -4,6 +4,7 @@ import {
   signInWithEmailAndPassword,
   signOut as firebaseSignOut,
   onAuthStateChanged,
+  createUserWithEmailAndPassword,
   type User,
 } from 'firebase/auth';
 import { getFirebaseApp } from './get-firebase-app';
@@ -13,6 +14,10 @@ const auth = getAuth(app);
 
 export function signIn(email, password) {
   return signInWithEmailAndPassword(auth, email, password);
+}
+
+export function signUp(email, password) {
+    return createUserWithEmailAndPassword(auth, email, password);
 }
 
 export function signOut() {
