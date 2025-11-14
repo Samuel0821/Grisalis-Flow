@@ -43,6 +43,21 @@ export interface Task extends DocumentData {
   createdAt: any;
 }
 
+export type BugStatus = 'new' | 'in_progress' | 'resolved' | 'closed';
+export type BugPriority = 'low' | 'medium' | 'high' | 'critical';
+
+export interface Bug extends DocumentData {
+  id: string;
+  projectId: string;
+  title: string;
+  description?: string;
+  status: BugStatus;
+  priority: BugPriority;
+  reportedBy: string;
+  createdAt: any;
+  updatedAt: any;
+}
+
 
 // ---- Funciones para Proyectos ----
 
@@ -164,5 +179,65 @@ export const updateTaskStatus = async (
   } catch (error) {
     console.error('Error updating task status: ', error);
     throw new Error('No se pudo actualizar el estado de la tarea.');
+  }
+};
+
+
+// ---- Funciones para Bugs ----
+
+/**
+ * Crea un nuevo bug en Firestore.
+ */
+export const createBug = async (
+  bugData: Omit<Bug, 'id' | 'createdAt' | 'updatedAt'>
+): Promise<Bug> => {
+  try {
+    const docRef = await addDoc(collection(db, 'bugs'), {
+      ...bugData,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    });
+    const newBug = { id: docRef.id, ...bugData, createdAt: new Date(), updatedAt: new Date() };
+    return newBug as Bug;
+  } catch (error) {
+    console.error('Error creating bug: ', error);
+    throw new Error('No se pudo reportar el bug.');
+  }
+};
+
+/**
+ * Obtiene todos los bugs. Se podría filtrar por usuario si fuera necesario.
+ */
+export const getBugs = async (): Promise<Bug[]> => {
+  try {
+    const q = query(collection(db, 'bugs'));
+    const querySnapshot = await getDocs(q);
+    const bugs: Bug[] = [];
+    querySnapshot.forEach((doc) => {
+      bugs.push({ id: doc.id, ...doc.data() } as Bug);
+    });
+    return bugs;
+  } catch (error) {
+    console.error('Error getting bugs: ', error);
+    throw new Error('No se pudieron obtener los bugs.');
+  }
+};
+
+/**
+ * Actualiza el estado de un bug.
+ */
+export const updateBugStatus = async (
+  bugId: string,
+  status: BugStatus
+): Promise<void> => {
+  try {
+    const bugRef = doc(db, 'bugs', bugId);
+    await updateDoc(bugRef, {
+      status,
+      updatedAt: serverTimestamp(),
+    });
+  } catch (error) {
+    console.error('Error updating bug status: ', error);
+    throw new Error('No se pudo actualizar el estado del bug.');
   }
 };
