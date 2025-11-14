@@ -137,6 +137,20 @@ export interface AuditLog extends DocumentData {
   timestamp: Timestamp;
 }
 
+// ---- User Profile Functions ----
+export const getUserProfile = async (userId: string): Promise<UserProfile | null> => {
+    try {
+        const docRef = doc(db, 'userProfiles', userId);
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists()) {
+            return docSnap.data() as UserProfile;
+        }
+        return null;
+    } catch (error) {
+        console.error("Error getting user profile:", error);
+        throw new Error('Could not get user profile.');
+    }
+}
 
 // ---- Funciones de Auditoría ----
 export const createAuditLog = async (logData: Omit<AuditLog, 'id' | 'timestamp'>) => {
@@ -722,5 +736,3 @@ export const getComments = (taskId: string, callback: (comments: Comment[]) => v
 
     return unsubscribe;
 }
-
-    

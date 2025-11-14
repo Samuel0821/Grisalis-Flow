@@ -3,8 +3,8 @@
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/use-auth';
-import { getAuditLogs, AuditLog } from '@/lib/firebase/firestore';
-import { Loader2 } from 'lucide-react';
+import { getAuditLogs, AuditLog, getUserProfile, UserProfile } from '@/lib/firebase/firestore';
+import { Loader2, ShieldAlert } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import {
   Table,
@@ -15,20 +15,26 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { formatDistanceToNow } from 'date-fns';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 export default function AuditLogPage() {
   const { user } = useAuth();
   const { toast } = useToast();
   const [logs, setLogs] = useState<AuditLog[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
 
   useEffect(() => {
     if (user) {
       const fetchData = async () => {
         setIsLoading(true);
         try {
-          const logData = await getAuditLogs();
-          setLogs(logData);
+          const profile = await getUserProfile(user.uid);
+          setUserProfile(profile);
+          if (profile && profile.role === 'admin') {
+            const logData = await getAuditLogs();
+            setLogs(logData);
+          }
         } catch (error) {
           console.error('Error fetching audit logs:', error);
           toast({
@@ -44,19 +50,37 @@ export default function AuditLogPage() {
     }
   }, [user, toast]);
 
+  if (isLoading) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  if (!userProfile || userProfile.role !== 'admin') {
+    return (
+        <Card className="w-full max-w-md mx-auto">
+            <CardHeader className="text-center">
+                <ShieldAlert className="mx-auto h-12 w-12 text-destructive" />
+                <CardTitle className="mt-4">Access Denied</CardTitle>
+            </CardHeader>
+            <CardContent>
+                <p className="text-center text-muted-foreground">
+                    You do not have the required permissions to view this page. Please contact an administrator if you believe this is an error.
+                </p>
+            </CardContent>
+        </Card>
+    );
+  }
+
   return (
     <div className="flex flex-col gap-8">
       <div className="flex flex-col gap-2">
         <h1 className="font-headline text-3xl font-bold tracking-tight">Audit Log</h1>
-        <p className="text-muted-foreground">Track important events and changes in the system.</p>
+        <p className="text-muted-foreground">Track important events and changes in the system. Only visible to Admins.</p>
       </div>
-
-      {isLoading ? (
-        <div className="flex justify-center items-center h-64">
-          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-        </div>
-      ) : (
-         <div className="border rounded-lg">
+        <div className="border rounded-lg">
         <Table>
           <TableHeader>
             <TableRow>
@@ -90,7 +114,6 @@ export default function AuditLogPage() {
           </TableBody>
         </Table>
       </div>
-      )}
     </div>
   );
 }

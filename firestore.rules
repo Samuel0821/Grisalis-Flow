@@ -20,7 +20,7 @@ service cloud.firestore {
     }
     match /userProfiles/{userId} {
       // Allow users to read their own profile.
-      allow get: if isOwner(userId);
+      allow get: if isOwner(userId) || isAdmin();
       // Allow admins to read any profile.
       allow list: if isAdmin();
       // Allow a user to create their own profile upon sign-up.
@@ -68,4 +68,3 @@ service cloud.firestore {
     }
   }
 }
-    
