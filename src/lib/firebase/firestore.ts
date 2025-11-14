@@ -85,6 +85,17 @@ export interface WikiPage extends DocumentData {
   updatedAt: Timestamp;
 }
 
+export type SprintStatus = 'planning' | 'active' | 'completed';
+
+export interface Sprint extends DocumentData {
+  id: string;
+  projectId: string;
+  name: string;
+  startDate: Timestamp;
+  endDate: Timestamp;
+  status: SprintStatus;
+}
+
 
 // ---- Funciones para Proyectos ----
 
@@ -452,3 +463,40 @@ export const getWikiPageBySlug = async (slug: string): Promise<WikiPage | null> 
         throw new Error('Could not get wiki page.');
     }
 }
+
+
+// ---- Funciones para Sprints ----
+
+/**
+ * Crea un nuevo sprint.
+ */
+export const createSprint = async (
+  sprintData: Omit<Sprint, 'id'>
+): Promise<Sprint> => {
+  try {
+    const docRef = await addDoc(collection(db, 'sprints'), sprintData);
+    const docSnap = await getDoc(docRef);
+    return { id: docRef.id, ...docSnap.data() } as Sprint;
+  } catch (error) {
+    console.error('Error creating sprint: ', error);
+    throw new Error('Could not create the sprint.');
+  }
+};
+
+/**
+ * Obtiene todos los sprints para un proyecto específico.
+ */
+export const getSprintsForProject = async (projectId: string): Promise<Sprint[]> => {
+  try {
+    const q = query(collection(db, 'sprints'), where('projectId', '==', projectId), orderBy('startDate', 'desc'));
+    const querySnapshot = await getDocs(q);
+    const sprints: Sprint[] = [];
+    querySnapshot.forEach((doc) => {
+      sprints.push({ id: doc.id, ...doc.data() } as Sprint);
+    });
+    return sprints;
+  } catch (error) {
+    console.error('Error getting sprints: ', error);
+    throw new Error('Could not get sprints.');
+  }
+};

@@ -2,15 +2,18 @@
 'use client';
 
 import { useEffect, useState, useMemo } from 'react';
-import { getProject, Project, getTasks, Task } from '@/lib/firebase/firestore';
+import { getProject, Project, getTasks, Task, getSprints, Sprint } from '@/lib/firebase/firestore';
 import { useAuth } from '@/hooks/use-auth';
 import { Loader2 } from 'lucide-react';
 import { KanbanBoard } from './kanban-board';
+import { SprintsView } from './sprints-view';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 export default function ProjectDetailsPage({ params }: { params: { projectId: string } }) {
   const { user } = useAuth();
   const [project, setProject] = useState<Project | null>(null);
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [sprints, setSprints] = useState<Sprint[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -25,8 +28,12 @@ export default function ProjectDetailsPage({ params }: { params: { projectId: st
               setError('No tienes permiso para ver este proyecto.');
             } else {
               setProject(projectData);
-              const taskData = await getTasks(params.projectId);
+              const [taskData, sprintData] = await Promise.all([
+                  getTasks(params.projectId),
+                  getSprintsForProject(params.projectId)
+              ]);
               setTasks(taskData);
+              setSprints(sprintData);
             }
           } else {
             setError('Proyecto no encontrado.');
@@ -43,6 +50,11 @@ export default function ProjectDetailsPage({ params }: { params: { projectId: st
   }, [user, params.projectId]);
 
   const initialTasks = useMemo(() => tasks, [tasks]);
+  const initialSprints = useMemo(() => sprints, [sprints]);
+  
+  const handleSprintCreated = (newSprint: Sprint) => {
+    setSprints(prevSprints => [...prevSprints, newSprint]);
+  }
 
   if (loading) {
     return (
@@ -65,12 +77,28 @@ export default function ProjectDetailsPage({ params }: { params: { projectId: st
   }
 
   return (
-    <div className="flex flex-col gap-8 h-[calc(100vh-12rem)]">
+    <div className="flex flex-col gap-8 h-full">
       <div className="flex flex-col gap-2">
         <h1 className="font-headline text-3xl font-bold tracking-tight">{project.name}</h1>
         <p className="text-muted-foreground">{project.description}</p>
       </div>
-      <KanbanBoard projectId={project.id!} initialTasks={initialTasks} />
+      
+      <Tabs defaultValue="kanban" className="flex-1 flex flex-col">
+        <TabsList>
+          <TabsTrigger value="kanban">Kanban</TabsTrigger>
+          <TabsTrigger value="sprints">Sprints</TabsTrigger>
+          <TabsTrigger value="settings">Settings</TabsTrigger>
+        </TabsList>
+        <TabsContent value="kanban" className="flex-1 mt-4">
+           <KanbanBoard projectId={project.id!} initialTasks={initialTasks} />
+        </TabsContent>
+        <TabsContent value="sprints" className="flex-1 mt-4">
+            <SprintsView projectId={project.id!} initialSprints={initialSprints} onSprintCreated={handleSprintCreated} />
+        </TabsContent>
+        <TabsContent value="settings">
+            <p className="text-muted-foreground">Manage project settings here.</p>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
