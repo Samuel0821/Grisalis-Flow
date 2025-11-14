@@ -16,6 +16,7 @@ import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { signOut } from '@/lib/firebase/auth';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/use-auth';
+import Link from 'next/link';
 
 const userAvatar = PlaceHolderImages.find((p) => p.id === 'user-avatar');
 
@@ -56,7 +57,9 @@ export function Header() {
         <DropdownMenuContent align="end">
           <DropdownMenuLabel>Mi Cuenta</DropdownMenuLabel>
           <DropdownMenuSeparator />
-          <DropdownMenuItem>Configuración</DropdownMenuItem>
+          <DropdownMenuItem asChild>
+            <Link href="/settings">Configuración</Link>
+          </DropdownMenuItem>
           <DropdownMenuItem>Soporte</DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem onClick={handleLogout}>Cerrar sesión</DropdownMenuItem>
