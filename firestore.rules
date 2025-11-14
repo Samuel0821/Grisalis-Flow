@@ -33,36 +33,35 @@ service cloud.firestore {
     match /projects/{projectId} {
       allow read, write: if isSignedIn();
     }
-    match /projects/{projectId}/members/{memberId} {
+    match /projects/{projectId}/{document=**} {
       allow read, write: if isSignedIn();
     }
-    match /projects/{projectId}/tasks/{taskId} {
+    match /tasks/{taskId} {
       allow read, write: if isSignedIn();
     }
-    match /projects/{projectId}/tasks/{taskId}/{document=**} {
-      allow read, write: if isSignedIn();
-    }
-    match /sprints/{sprintId} {
-      allow read, write: if isSignedIn();
+    match /tasks/{taskId}/{document=**} {
+        allow read, write: if isSignedIn();
     }
     match /bugs/{bugId} {
       allow read, write: if isSignedIn();
     }
-    match /timeEntries/{timeEntryId} {
+    match /timeLogs/{timeLogId} {
+        allow read, write: if isSignedIn();
+    }
+    match /sprints/{sprintId} {
       allow read, write: if isSignedIn();
     }
     match /wiki/{wikiPageId} {
-      allow read, write: if isSignedIn();
+        allow read, write: if isSignedIn();
     }
-    match /users/{userId}/notifications/{notificationId} {
-      allow read, write: if isOwner(userId);
+    match /notifications/{notificationId} {
+        allow read, write: if isSignedIn();
     }
     match /auditLogs/{auditLogId} {
       // Only admins can read audit logs.
       allow get, list: if isAdmin();
-      // Any authenticated user can create an audit log entry.
-      // The creation is handled by trusted client-side code after a validated action.
-      allow create: if isSignedIn();
+      // Any authenticated user (even anonymous on login fail) can create an audit log.
+      allow create: if true;
       // Logs are immutable.
       allow update, delete: if false;
     }

@@ -18,6 +18,7 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { getAuth, signInWithEmailAndPassword } from 'firebase/auth';
 import { Loader2 } from 'lucide-react';
+import { createAuditLog } from '@/lib/firebase/firestore';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -30,7 +31,18 @@ export default function LoginPage() {
     e.preventDefault();
     setIsLoading(true);
     try {
-      await signInWithEmailAndPassword(getAuth(), email, password);
+      const userCredential = await signInWithEmailAndPassword(getAuth(), email, password);
+      const user = userCredential.user;
+
+      await createAuditLog({
+        userId: user.uid,
+        userName: user.displayName || email,
+        action: 'User signed in successfully',
+        entity: 'user',
+        entityId: user.uid,
+        details: { email },
+      });
+
       toast({
         title: '¡Bienvenido!',
         description: 'Has iniciado sesión correctamente.',
@@ -38,6 +50,17 @@ export default function LoginPage() {
       router.push('/dashboard');
     } catch (error) {
       console.error(error);
+      
+      // We don't have a user ID on failed login, so we log what we can.
+      await createAuditLog({
+        userId: 'anonymous',
+        userName: email,
+        action: 'User failed to sign in',
+        entity: 'user',
+        entityId: 'unknown',
+        details: { email, error: (error as Error).message },
+      });
+      
       toast({
         variant: 'destructive',
         title: 'Error al iniciar sesión',
@@ -118,5 +141,3 @@ export default function LoginPage() {
     </main>
   );
 }
-
-    
