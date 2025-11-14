@@ -39,24 +39,27 @@ function HistoryDialog({ pageId }: { pageId: string }) {
     const [versions, setVersions] = useState<WikiPageVersion[]>([]);
     const [loading, setLoading] = useState(true);
     const [selectedVersion, setSelectedVersion] = useState<WikiPageVersion | null>(null);
+    const [isDialogOpen, setIsDialogOpen] = useState(false);
 
     useEffect(() => {
-        const fetchVersions = async () => {
-            setLoading(true);
-            try {
-                const versionData = await getWikiPageVersions(pageId);
-                setVersions(versionData);
-            } catch (error) {
-                console.error("Failed to fetch page history", error);
-            } finally {
-                setLoading(false);
-            }
-        };
-        fetchVersions();
-    }, [pageId]);
+        if (isDialogOpen) {
+            const fetchVersions = async () => {
+                setLoading(true);
+                try {
+                    const versionData = await getWikiPageVersions(pageId);
+                    setVersions(versionData);
+                } catch (error) {
+                    console.error("Failed to fetch page history", error);
+                } finally {
+                    setLoading(false);
+                }
+            };
+            fetchVersions();
+        }
+    }, [pageId, isDialogOpen]);
 
     return (
-        <Dialog onOpenChange={(open) => !open && setSelectedVersion(null)}>
+        <Dialog open={isDialogOpen} onOpenChange={(open) => { setIsDialogOpen(open); if (!open) setSelectedVersion(null); }}>
             <DialogTrigger asChild>
                 <Button variant="outline"><History className="mr-2"/> View History</Button>
             </DialogTrigger>
