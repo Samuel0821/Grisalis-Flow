@@ -6,9 +6,14 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter as ReportTableFooter } from '@/components/ui/table';
 import { Project, Task, TimeLog, UserProfile } from '@/lib/firebase/firestore';
-import { format } from 'date-fns';
+import { format, isWithinInterval } from 'date-fns';
 import { Button } from '@/components/ui/button';
-import { Download } from 'lucide-react';
+import { Download, Calendar as CalendarIcon } from 'lucide-react';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
+import { DateRange } from 'react-day-picker';
+import { cn } from '@/lib/utils';
+
 
 export function ReportGenerator({
   projects,
@@ -23,14 +28,22 @@ export function ReportGenerator({
 }) {
   const [selectedProjectId, setSelectedProjectId] = useState<string>('all');
   const [selectedUserId, setSelectedUserId] = useState<string>('all');
+  const [dateRange, setDateRange] = useState<DateRange | undefined>();
 
   const filteredLogs = useMemo(() => {
     return timeLogs.filter(log => {
         const projectMatch = selectedProjectId === 'all' || log.projectId === selectedProjectId;
         const userMatch = selectedUserId === 'all' || log.userId === selectedUserId;
-        return projectMatch && userMatch;
+        const logDate = log.date?.toDate();
+        const dateMatch = !dateRange || !dateRange.from || !logDate
+            ? true
+            : isWithinInterval(logDate, {
+                start: dateRange.from,
+                end: dateRange.to || dateRange.from, // If no 'to' date, use 'from' as the interval end
+              });
+        return projectMatch && userMatch && dateMatch;
     });
-  }, [selectedProjectId, selectedUserId, timeLogs]);
+  }, [selectedProjectId, selectedUserId, dateRange, timeLogs]);
 
   const totalHours = useMemo(() => {
     return filteredLogs.reduce((acc, log) => acc + log.hours, 0);
@@ -70,12 +83,12 @@ export function ReportGenerator({
       <CardHeader>
         <CardTitle>Time Log Report</CardTitle>
         <CardDescription>
-          Filter and view time logs by project and user, then export the results.
+          Filter and view time logs by project, user and date, then export the results.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="flex flex-col sm:flex-row items-center gap-4">
-            <div className="grid grid-cols-2 gap-4 w-full">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 w-full">
                 <Select onValueChange={setSelectedProjectId} defaultValue="all">
                     <SelectTrigger>
                         <SelectValue placeholder="Filter by project..." />
@@ -102,8 +115,44 @@ export function ReportGenerator({
                         ))}
                     </SelectContent>
                 </Select>
+                 <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        id="date-range"
+                        variant={"outline"}
+                        className={cn(
+                          "w-full justify-start text-left font-normal",
+                          !dateRange && "text-muted-foreground"
+                        )}
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {dateRange?.from ? (
+                          dateRange.to ? (
+                            <>
+                              {format(dateRange.from, "LLL dd, y")} -{" "}
+                              {format(dateRange.to, "LLL dd, y")}
+                            </>
+                          ) : (
+                            format(dateRange.from, "LLL dd, y")
+                          )
+                        ) : (
+                          <span>Pick a date range</span>
+                        )}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        initialFocus
+                        mode="range"
+                        defaultMonth={dateRange?.from}
+                        selected={dateRange}
+                        onSelect={setDateRange}
+                        numberOfMonths={2}
+                      />
+                    </PopoverContent>
+                  </Popover>
             </div>
-            <Button variant="outline" onClick={handleExportCsv} disabled={filteredLogs.length === 0}>
+            <Button variant="outline" onClick={handleExportCsv} disabled={filteredLogs.length === 0} className="shrink-0">
                 <Download className="mr-2" />
                 Export CSV
             </Button>
