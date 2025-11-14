@@ -52,9 +52,10 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
+import { useUser } from '@/firebase';
 
 export default function ProjectsPage() {
-  const { user } = useAuth();
+  const { user } = useUser();
   const { toast } = useToast();
   const [projects, setProjects] = useState<Project[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -108,7 +109,7 @@ export default function ProjectsPage() {
         name: projectName,
         description: projectDescription,
         createdBy: user.uid,
-      }, { uid: user.uid, displayName: user.displayName });
+      }, { uid: user.uid, displayName: user.displayName, email: user.email });
       setProjects((prev) => [...prev, newProject]);
       toast({ title: 'Success!', description: `Project "${projectName}" created.` });
       resetForm();
@@ -258,10 +259,10 @@ export default function ProjectsPage() {
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
                         <DropdownMenuItem onClick={() => openEditDialog(project)}>
-                          <Edit className="mr-2" /> Edit
+                          <Edit className="mr-2 h-4 w-4" /> Edit
                         </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => openDeleteDialog(project)} className="text-destructive">
-                          <Trash2 className="mr-2" /> Delete
+                          <Trash2 className="mr-2 h-4 w-4" /> Delete
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
@@ -354,3 +355,5 @@ export default function ProjectsPage() {
     </>
   );
 }
+
+    

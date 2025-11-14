@@ -2,15 +2,16 @@
 'use client';
 
 import { useEffect, useState, useMemo } from 'react';
-import { getProject, Project, getTasks, Task, getSprints, Sprint } from '@/lib/firebase/firestore';
-import { useAuth } from '@/hooks/use-auth';
+import { getProject, Project, getTasks, Task, getSprintsForProject, Sprint } from '@/lib/firebase/firestore';
+import { useUser } from '@/firebase';
 import { Loader2 } from 'lucide-react';
 import { KanbanBoard } from './kanban-board';
 import { SprintsView } from './sprints-view';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { ProjectSettings } from './project-settings';
 
 export default function ProjectDetailsPage({ params }: { params: { projectId: string } }) {
-  const { user } = useAuth();
+  const { user } = useUser();
   const [project, setProject] = useState<Project | null>(null);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [sprints, setSprints] = useState<Sprint[]>([]);
@@ -24,9 +25,6 @@ export default function ProjectDetailsPage({ params }: { params: { projectId: st
         try {
           const projectData = await getProject(params.projectId);
           if (projectData) {
-            if (projectData.createdBy !== user.uid) {
-              setError('No tienes permiso para ver este proyecto.');
-            } else {
               setProject(projectData);
               const [taskData, sprintData] = await Promise.all([
                   getTasks(params.projectId),
@@ -34,9 +32,8 @@ export default function ProjectDetailsPage({ params }: { params: { projectId: st
               ]);
               setTasks(taskData);
               setSprints(sprintData);
-            }
           } else {
-            setError('Proyecto no encontrado.');
+            setError('Proyecto no encontrado o no tienes permiso para verlo.');
           }
         } catch (e) {
           console.error(e);
@@ -96,9 +93,11 @@ export default function ProjectDetailsPage({ params }: { params: { projectId: st
             <SprintsView projectId={project.id!} initialSprints={initialSprints} onSprintCreated={handleSprintCreated} />
         </TabsContent>
         <TabsContent value="settings">
-            <p className="text-muted-foreground">Manage project settings here.</p>
+            <ProjectSettings project={project} />
         </TabsContent>
       </Tabs>
     </div>
   );
 }
+
+    

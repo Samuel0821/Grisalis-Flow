@@ -24,6 +24,7 @@ const { firestore: db } = initializeFirebase();
 
 
 export interface UserProfile {
+  id: string;
   email: string;
   displayName?: string;
   role: 'admin' | 'member';
@@ -137,7 +138,33 @@ export interface AuditLog extends DocumentData {
   timestamp: Timestamp;
 }
 
+export interface ProjectMember extends DocumentData {
+    id: string;
+    userId: string;
+    projectId: string;
+    role: 'owner' | 'member';
+    displayName: string;
+    email: string;
+}
+
+
 // ---- User Profile Functions ----
+export const getAllUsers = async (): Promise<UserProfile[]> => {
+    try {
+        const usersRef = collection(db, 'userProfiles');
+        const querySnapshot = await getDocs(usersRef);
+        const users: UserProfile[] = [];
+        querySnapshot.forEach((doc) => {
+            users.push({ id: doc.id, ...doc.data() } as UserProfile);
+        });
+        return users;
+    } catch (error) {
+        console.error("Error getting all users:", error);
+        throw new Error('Could not get all users.');
+    }
+}
+
+
 export const getUserProfile = async (userId: string): Promise<UserProfile | null> => {
     try {
         const docRef = doc(db, 'userProfiles', userId);
@@ -184,54 +211,77 @@ export const getAuditLogs = async (): Promise<AuditLog[]> => {
 // ---- Funciones para Proyectos ----
 
 /**
- * Crea un nuevo proyecto en Firestore.
- * @param projectData - Los datos del proyecto a crear.
- * @returns El objeto del proyecto con su ID.
+ * Crea un nuevo proyecto en Firestore y asigna al creador como 'owner'.
  */
 export const createProject = async (
   projectData: Omit<Project, 'id' | 'createdAt' | 'updatedAt' | 'slug'>,
-  user: { uid: string, displayName: string | null }
+  user: { uid: string, displayName: string | null, email: string | null }
 ): Promise<Project> => {
-  try {
-    const slug = projectData.name.toLowerCase().replace(/\s+/g, '-').replace(/[^\w-]+/g, '');
-    const docRef = await addDoc(collection(db, 'projects'), {
-      ...projectData,
-      slug,
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp(),
-      status: 'active'
-    });
+  const batch = writeBatch(db);
+  const projectRef = doc(collection(db, 'projects'));
 
-    await createAuditLog({
-        userId: user.uid,
-        userName: user.displayName || 'Anonymous',
-        action: `Created project "${projectData.name}"`,
-        entity: 'project',
-        entityId: docRef.id,
-        details: projectData
-    });
+  const slug = projectData.name.toLowerCase().replace(/\s+/g, '-').replace(/[^\w-]+/g, '');
+  batch.set(projectRef, {
+    ...projectData,
+    slug,
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+    status: 'active'
+  });
 
-    return { id: docRef.id, ...projectData, slug, createdAt: new Date(), updatedAt: new Date(), status: 'active' };
-  } catch (error) {
-    console.error('Error creating project: ', error);
-    throw new Error('Could not create the project.');
-  }
+  const memberRef = doc(db, 'projects', projectRef.id, 'members', user.uid);
+  batch.set(memberRef, {
+      userId: user.uid,
+      projectId: projectRef.id,
+      role: 'owner',
+      displayName: user.displayName || 'Owner',
+      email: user.email || 'N/A'
+  });
+  
+  await batch.commit();
+
+  await createAuditLog({
+      userId: user.uid,
+      userName: user.displayName || 'Anonymous',
+      action: `Created project "${projectData.name}"`,
+      entity: 'project',
+      entityId: projectRef.id,
+      details: projectData
+  });
+
+  return { id: projectRef.id, ...projectData, slug, createdAt: new Date(), updatedAt: new Date(), status: 'active' };
 };
 
 /**
- * Obtiene todos los proyectos.
- * @returns Un array de proyectos.
+ * Obtiene los proyectos en los que un usuario es miembro.
  */
-export const getProjects = async (userId?: string): Promise<Project[]> => {
+export const getProjects = async (userId: string): Promise<Project[]> => {
   try {
-    const projectsRef = collection(db, 'projects');
-    const q = userId ? query(projectsRef, where('createdBy', '==', userId), orderBy('createdAt', 'desc')) : query(projectsRef, orderBy('createdAt', 'desc'));
-    const querySnapshot = await getDocs(q);
+    const memberQuery = query(collection(db, 'projects'), where('memberIds', 'array-contains', userId));
+    const ownerQuery = query(collection(db, 'projects'), where('createdBy', '==', userId));
+
+    const projectsMemberSnapshot = await getDocs(query(collectionGroup(db, 'members'), where('userId', '==', userId)));
+    const projectIds = projectsMemberSnapshot.docs.map(doc => doc.data().projectId);
+
+    if (projectIds.length === 0) {
+        return [];
+    }
+
+    const projectsQuery = query(collection(db, 'projects'), where('id', 'in', projectIds));
+    const projectsSnapshot = await getDocs(projectsQuery);
+
     const projects: Project[] = [];
-    querySnapshot.forEach((doc) => {
+    projectsSnapshot.forEach((doc) => {
       projects.push({ id: doc.id, ...doc.data() } as Project);
     });
-    return projects;
+    
+    // This is less efficient, but necessary with the new structure.
+    const projectRefs = (await getDocs(query(collectionGroup(db, 'members'), where('userId', '==', userId)))).docs.map(d => doc(db, 'projects', d.data().projectId));
+    if(projectRefs.length === 0) return [];
+    
+    const projectSnapshots = await Promise.all(projectRefs.map(ref => getDoc(ref)));
+    
+    return projectSnapshots.filter(snap => snap.exists()).map(snap => ({ id: snap.id, ...snap.data() } as Project));
   } catch (error) {
     console.error('Error getting projects: ', error);
     throw new Error('Could not get projects.');
@@ -240,8 +290,6 @@ export const getProjects = async (userId?: string): Promise<Project[]> => {
 
 /**
  * Obtiene un único proyecto por su ID.
- * @param projectId - El ID del proyecto.
- * @returns El objeto del proyecto.
  */
 export const getProject = async (projectId: string): Promise<Project | null> => {
     try {
@@ -290,15 +338,21 @@ export const updateProject = async (
 };
 
 /**
- * Elimina un proyecto y todas sus tareas y bugs asociados.
+ * Elimina un proyecto y todas sus subcolecciones asociadas.
  */
 export const deleteProject = async (projectId: string, projectName: string, user: { uid: string, displayName: string | null }): Promise<void> => {
   try {
     const batch = writeBatch(db);
 
-    // Delete project
     const projectRef = doc(db, 'projects', projectId);
     batch.delete(projectRef);
+
+    // Delete members subcollection
+    const membersQuery = query(collection(db, 'projects', projectId, 'members'));
+    const membersSnapshot = await getDocs(membersQuery);
+    membersSnapshot.forEach((memberDoc) => {
+        batch.delete(memberDoc.ref);
+    });
 
     // Find and delete associated tasks
     const tasksQuery = query(collection(db, 'tasks'), where('projectId', '==', projectId));
@@ -338,6 +392,59 @@ export const deleteProject = async (projectId: string, projectName: string, user
   }
 };
 
+// ---- Funciones para Miembros del Proyecto ----
+export const getProjectMembers = async (projectId: string): Promise<ProjectMember[]> => {
+    try {
+        const membersRef = collection(db, 'projects', projectId, 'members');
+        const querySnapshot = await getDocs(membersRef);
+        const members: ProjectMember[] = [];
+        querySnapshot.forEach((doc) => {
+            members.push({ id: doc.id, ...doc.data() } as ProjectMember);
+        });
+        return members;
+    } catch (error) {
+        console.error('Error getting project members: ', error);
+        throw new Error('Could not get project members.');
+    }
+}
+
+export const addProjectMember = async (projectId: string, memberData: Omit<ProjectMember, 'id'>, user: { uid: string, displayName: string | null }): Promise<void> => {
+    try {
+        const memberRef = doc(db, 'projects', projectId, 'members', memberData.userId);
+        await setDoc(memberRef, memberData);
+
+        await createAuditLog({
+            userId: user.uid,
+            userName: user.displayName || 'Anonymous',
+            action: `Added member ${memberData.displayName} to project`,
+            entity: 'project',
+            entityId: projectId,
+            details: { memberId: memberData.userId, role: memberData.role }
+        });
+    } catch (error) {
+        console.error('Error adding project member: ', error);
+        throw new Error('Could not add project member.');
+    }
+}
+
+export const removeProjectMember = async (projectId: string, userId: string, memberName: string, user: { uid: string, displayName: string | null }): Promise<void> => {
+    try {
+        const memberRef = doc(db, 'projects', projectId, 'members', userId);
+        await deleteDoc(memberRef);
+
+        await createAuditLog({
+            userId: user.uid,
+            userName: user.displayName || 'Anonymous',
+            action: `Removed member ${memberName} from project`,
+            entity: 'project',
+            entityId: projectId,
+            details: { memberId: userId }
+        });
+    } catch (error) {
+        console.error('Error removing project member: ', error);
+        throw new Error('Could not remove project member.');
+    }
+}
 
 
 // ---- Funciones para Tareas ----
@@ -736,3 +843,5 @@ export const getComments = (taskId: string, callback: (comments: Comment[]) => v
 
     return unsubscribe;
 }
+
+    

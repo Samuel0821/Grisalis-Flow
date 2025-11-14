@@ -18,11 +18,22 @@ service cloud.firestore {
     function isMember() {
       return isSignedIn() && getUserRole(request.auth.uid) == 'member';
     }
+    
+    // Function to check if a user is a member of a specific project.
+    function isProjectMember(projectId) {
+      return exists(/databases/$(database)/documents/projects/$(projectId)/members/$(request.auth.uid));
+    }
+
+    // Function to check if a user is an owner of a specific project.
+    function isProjectOwner(projectId) {
+        return get(/databases/$(database)/documents/projects/$(projectId)/members/$(request.auth.uid)).data.role == 'owner';
+    }
+
     match /userProfiles/{userId} {
       // Allow users to read their own profile.
       allow get: if isOwner(userId) || isAdmin();
-      // Allow admins to read any profile.
-      allow list: if isAdmin();
+      // Allow any signed-in user to list other users (for adding to projects)
+      allow list: if isSignedIn();
       // Allow a user to create their own profile upon sign-up.
       // The role must be 'member' by default, and cannot be set to 'admin' by the user.
       allow create: if isOwner(userId) && request.resource.data.role == 'member';
@@ -30,40 +41,93 @@ service cloud.firestore {
       // This is how roles are managed.
       allow write: if isAdmin();
     }
+
     match /projects/{projectId} {
-      allow read, write: if isSignedIn();
+      // Only project members or admins can read project data.
+      allow get: if isProjectMember(projectId) || isAdmin();
+      // Only authenticated users can list projects (they will be filtered on the client).
+      allow list: if isSignedIn();
+      // Only authenticated users can create projects.
+      allow create: if isSignedIn();
+      // Only project owners or admins can update a project.
+      allow update: if isProjectOwner(projectId) || isAdmin();
+      // Only project owners or admins can delete a project.
+      allow delete: if isProjectOwner(projectId) || isAdmin();
     }
-    match /projects/{projectId}/{document=**} {
-      allow read, write: if isSignedIn();
+
+    match /projects/{projectId}/members/{userId} {
+        // Project members and admins can read the member list.
+        allow get, list: if isProjectMember(projectId) || isAdmin();
+        // Only project owners and admins can add, update or remove members.
+        allow write: if isProjectOwner(projectId) || isAdmin();
     }
+
     match /tasks/{taskId} {
-      allow read, write: if isSignedIn();
+      function getTaskProjectId() {
+        return get(/databases/$(database)/documents/tasks/$(taskId)).data.projectId;
+      }
+      // A user can read/write a task if they are a member of the project the task belongs to.
+      allow read, write: if isProjectMember(getTaskProjectId()) || isAdmin();
     }
-    match /tasks/{taskId}/{document=**} {
-        allow read, write: if isSignedIn();
+
+     match /tasks/{taskId}/comments/{commentId} {
+        function getTaskProjectId() {
+            return get(/databases/$(database)/documents/tasks/$(taskId)).data.projectId;
+        }
+        // Anyone in the project can read/write comments.
+        allow read, write: if isProjectMember(getTaskProjectId()) || isAdmin();
     }
+
     match /bugs/{bugId} {
-      allow read, write: if isSignedIn();
+      function getBugProjectId() {
+        return get(/databases/$(database)/documents/bugs/$(bugId)).data.projectId;
+      }
+       // Anyone can create a bug report.
+      allow create: if isSignedIn();
+      // Only project members or admins can read/update/delete bugs.
+      allow get, list, update, delete: if isProjectMember(getBugProjectId()) || isAdmin();
     }
-    match /timeLogs/{timeLogId} {
-        allow read, write: if isSignedIn();
-    }
+
     match /sprints/{sprintId} {
-      allow read, write: if isSignedIn();
+      function getSprintProjectId() {
+        return get(/databases/$(database)/documents/sprints/$(sprintId)).data.projectId;
+      }
+      // A user can read/write a sprint if they are a member of the project the sprint belongs to.
+      allow read, write: if isProjectMember(getSprintProjectId()) || isAdmin();
     }
+    
+    match /timeLogs/{timeLogId} {
+      // Users can only read/write their own time logs. Admins can read all.
+      allow read: if isOwner(get(/databases/$(database)/documents/timeLogs/$(timeLogId)).data.userId) || isAdmin();
+      allow write: if isOwner(request.resource.data.userId);
+    }
+
     match /wiki/{wikiPageId} {
         allow read, write: if isSignedIn();
     }
+
     match /notifications/{notificationId} {
-        allow read, write: if isSignedIn();
+        // Users can only interact with their own notifications.
+        allow read, write: if isOwner(get(/databases/$(database)/documents/notifications/$(notificationId)).data.userId);
     }
-    match /auditLogs/{auditLogId} {
-      // Only admins can read audit logs.
-      allow get, list: if isAdmin();
-      // Any authenticated user (even anonymous on login fail) can create an audit log.
-      allow create: if true;
-      // Logs are immutable.
-      allow update, delete: if false;
-    }
+
+-    match /auditLogs/{auditLogId} {
+-      // Only admins can read audit logs.
+-      allow get, list: if isAdmin();
+-      // Any authenticated user (even anonymous on login fail) can create an audit log.
+-      allow create: if true;
+-      // Logs are immutable.
+-      allow update, delete: if false;
+-    }
++    match /auditLogs/{logId} {
++        // Allow write access for any signed-in user
++        allow create: if isSignedIn();
++        // Allow only admins to read
++        allow read: if isAdmin();
++        // Logs are immutable
++        allow update, delete: if false;
++      }
   }
 }
+
+    
