@@ -3,7 +3,7 @@
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/use-auth';
-import { getProjects, getTasksForProjects, Project, Task, getTimeLogs, TimeLog } from '@/lib/firebase/firestore';
+import { getProjects, getTasksForProjects, Project, Task, getTimeLogs, TimeLog, getAllUsers, UserProfile } from '@/lib/firebase/firestore';
 import { Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { ReportGenerator } from './report-generator';
@@ -14,6 +14,7 @@ export default function ReportsPage() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [timeLogs, setTimeLogs] = useState<TimeLog[]>([]);
+  const [users, setUsers] = useState<UserProfile[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -21,22 +22,17 @@ export default function ReportsPage() {
       const fetchData = async () => {
         setIsLoading(true);
         try {
-          // Fetch all projects for filtering, all tasks for referencing, and all time logs for reporting
-          const projectData = await getProjects();
+          // Fetch all data needed for the report generator
+          const [projectData, taskData, timeLogData, userData] = await Promise.all([
+            getProjects(),
+            getTasksForProjects([]), // Fetch all tasks for lookups
+            getTimeLogs(), // Fetch all time logs for reporting
+            getAllUsers(), // Fetch all users for filtering
+          ]);
           setProjects(projectData);
-
-          const projectIds = projectData.map(p => p.id!);
-          if (projectIds.length > 0) {
-              const [taskData, timeLogData] = await Promise.all([
-                  getTasksForProjects(projectIds),
-                  // For reports, we might want all logs, not just the user's.
-                  // Assuming getTimeLogs can be adapted or a new function created.
-                  // For now, it gets the current user's logs. We can expand this.
-                  getTimeLogs(user.uid) 
-              ]);
-              setTasks(taskData);
-              setTimeLogs(timeLogData);
-          }
+          setTasks(taskData);
+          setTimeLogs(timeLogData);
+          setUsers(userData);
         } catch (error) {
           console.error('Error fetching data:', error);
           toast({
@@ -68,6 +64,7 @@ export default function ReportsPage() {
           projects={projects}
           tasks={tasks}
           timeLogs={timeLogs}
+          users={users}
         />
       )}
     </div>

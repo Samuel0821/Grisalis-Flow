@@ -514,8 +514,15 @@ export const getTasks = async (projectId: string): Promise<Task[]> => {
  * Obtiene todas las tareas para multiples proyectos.
  */
 export const getTasksForProjects = async (projectIds: string[]): Promise<Task[]> => {
-  if (projectIds.length === 0) {
-    return [];
+  if (!projectIds || projectIds.length === 0) {
+    // If no project Ids, get all tasks for lookups
+    const q = query(collection(db, 'tasks'));
+    const querySnapshot = await getDocs(q);
+    const tasks: Task[] = [];
+    querySnapshot.forEach((doc) => {
+      tasks.push({ id: doc.id, ...doc.data() } as Task);
+    });
+    return tasks;
   }
   try {
     // Firestore 'in' query limited to 30 elements per query.
@@ -691,11 +698,16 @@ export const createTimeLog = async (
 };
 
 /**
- * Obtiene todos los registros de tiempo para un usuario específico.
+ * Obtiene registros de tiempo. Si se proporciona userId, filtra por usuario.
+ * Si no, obtiene todos los registros.
  */
-export const getTimeLogs = async (userId: string): Promise<TimeLog[]> => {
+export const getTimeLogs = async (userId?: string): Promise<TimeLog[]> => {
   try {
-    const q = query(collection(db, 'timeLogs'), where('userId', '==', userId), orderBy('date', 'desc'));
+    const timeLogsRef = collection(db, 'timeLogs');
+    const q = userId
+      ? query(timeLogsRef, where('userId', '==', userId), orderBy('date', 'desc'))
+      : query(timeLogsRef, orderBy('date', 'desc'));
+      
     const querySnapshot = await getDocs(q);
     const timeLogs: TimeLog[] = [];
     querySnapshot.forEach((doc) => {
@@ -931,5 +943,3 @@ export const getComments = (taskId: string, callback: (comments: Comment[]) => v
 
     return unsubscribe;
 }
-
-    
