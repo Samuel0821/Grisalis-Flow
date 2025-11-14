@@ -90,13 +90,19 @@ export interface TimeLog extends DocumentData {
 }
 
 export interface WikiPage extends DocumentData {
-  id?: string;
+  id: string;
   title: string;
   slug: string;
   content: string;
   createdBy: string;
+  lastEditedBy: { uid: string, displayName: string | null };
   createdAt: Timestamp;
   updatedAt: Timestamp;
+}
+
+export interface WikiPageVersion extends Omit<WikiPage, 'id' | 'slug'> {
+    versionId: string;
+    pageId: string;
 }
 
 export type SprintStatus = 'planning' | 'active' | 'completed';
@@ -727,19 +733,19 @@ export const getTimeLogs = async (userId?: string): Promise<TimeLog[]> => {
  * Crea una nueva página de Wiki.
  */
 export const createWikiPage = async (
-  pageData: Omit<WikiPage, 'id' | 'createdAt' | 'updatedAt' | 'slug'>,
+  pageData: Omit<WikiPage, 'id' | 'createdAt' | 'updatedAt' | 'slug' | 'lastEditedBy'>,
   user: { uid: string, displayName: string | null }
 ): Promise<WikiPage> => {
   try {
     const slug = pageData.title.toLowerCase().replace(/\s+/g, '-').replace(/[^\w-]+/g, '');
     const docRef = doc(collection(db, 'wiki'));
     
-    const newPageData = {
+    const newPageData: Omit<WikiPage, 'id'> = {
       ...pageData,
-      id: docRef.id,
       slug,
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp(),
+      lastEditedBy: { uid: user.uid, displayName: user.displayName },
+      createdAt: serverTimestamp() as Timestamp,
+      updatedAt: serverTimestamp() as Timestamp,
     }
     await setDoc(docRef, newPageData);
     
@@ -793,6 +799,96 @@ export const getWikiPageBySlug = async (slug: string): Promise<WikiPage | null> 
     } catch (error) {
         console.error('Error getting wiki page by slug: ', error);
         throw new Error('Could not get wiki page.');
+    }
+}
+
+/**
+ * Obtiene una página de Wiki por su ID.
+ */
+export const getWikiPageById = async (id: string): Promise<WikiPage | null> => {
+    try {
+        const docRef = doc(db, 'wiki', id);
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists()) {
+            return { id: docSnap.id, ...docSnap.data() } as WikiPage;
+        }
+        return null;
+    } catch (error) {
+        console.error("Error getting wiki page by ID:", error);
+        throw new Error('Could not get wiki page.');
+    }
+}
+
+/**
+ * Updates a wiki page and creates a version history entry.
+ */
+export const updateWikiPage = async (
+  pageId: string,
+  pageData: Pick<WikiPage, 'title' | 'content'>,
+  user: { uid: string, displayName: string | null }
+): Promise<WikiPage> => {
+    const batch = writeBatch(db);
+    const pageRef = doc(db, 'wiki', pageId);
+    
+    // 1. Get current page state to create a version from it.
+    const currentPageSnap = await getDoc(pageRef);
+    if (!currentPageSnap.exists()) {
+        throw new Error("Wiki page to update does not exist.");
+    }
+    const currentPageData = currentPageSnap.data() as WikiPage;
+
+    // 2. Create a new version document in the subcollection.
+    const versionRef = doc(collection(db, 'wiki', pageId, 'versions'));
+    const versionData: Omit<WikiPageVersion, 'versionId'> = {
+        pageId: pageId,
+        title: currentPageData.title,
+        content: currentPageData.content,
+        createdBy: currentPageData.createdBy,
+        lastEditedBy: currentPageData.lastEditedBy,
+        createdAt: currentPageData.createdAt,
+        updatedAt: currentPageData.updatedAt, // This is the timestamp of the version
+    };
+    batch.set(versionRef, versionData);
+
+    // 3. Update the main page document.
+    const newSlug = pageData.title.toLowerCase().replace(/\s+/g, '-').replace(/[^\w-]+/g, '');
+    const updateData = {
+        ...pageData,
+        slug: newSlug,
+        lastEditedBy: { uid: user.uid, displayName: user.displayName },
+        updatedAt: serverTimestamp(),
+    };
+    batch.update(pageRef, updateData);
+
+    // 4. Commit the batch.
+    await batch.commit();
+
+    // 5. Create audit log.
+    await createAuditLog({
+        userId: user.uid,
+        userName: user.displayName || 'Anonymous',
+        action: `Updated wiki article "${pageData.title}"`,
+        entity: 'wiki',
+        entityId: pageId,
+        details: { oldTitle: currentPageData.title, newTitle: pageData.title }
+    });
+
+    const updatedDoc = await getDoc(pageRef);
+    return { id: updatedDoc.id, ...updatedDoc.data() } as WikiPage;
+}
+
+/**
+ * Gets all historical versions for a specific wiki page.
+ */
+export const getWikiPageVersions = async (pageId: string): Promise<WikiPageVersion[]> => {
+    try {
+        const versionsRef = collection(db, 'wiki', pageId, 'versions');
+        const q = query(versionsRef, orderBy('updatedAt', 'desc'));
+        const querySnapshot = await getDocs(q);
+        return querySnapshot.docs.map(doc => ({ versionId: doc.id, ...doc.data() } as WikiPageVersion));
+    } catch (error) {
+        console.error('Error getting wiki page versions:', error);
+        throw new Error('Could not retrieve page history.');
     }
 }
 

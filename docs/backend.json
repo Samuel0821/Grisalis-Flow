@@ -1,3 +1,4 @@
+
 {
   "entities": {
     "UserProfile": {
@@ -375,6 +376,15 @@
             "type": "string",
             "description": "User ID of the page creator."
         },
+         "lastEditedBy": {
+            "type": "object",
+            "description": "Information about the last user who edited the page.",
+            "properties": {
+                "uid": {"type": "string"},
+                "displayName": {"type": "string"}
+            },
+            "required": ["uid"]
+        },
         "createdAt": {
           "type": "string",
           "description": "Timestamp indicating when the wiki page was created.",
@@ -392,8 +402,51 @@
         "slug",
         "content",
         "createdBy",
+        "lastEditedBy",
         "createdAt",
         "updatedAt"
+      ]
+    },
+    "WikiPageVersion": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "WikiPageVersion",
+      "type": "object",
+      "description": "Represents a historical version of a wiki page.",
+      "properties": {
+        "versionId": {
+            "type": "string"
+        },
+        "pageId": {
+            "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "content": {
+          "type": "string"
+        },
+        "createdBy": {
+            "type": "string"
+        },
+         "lastEditedBy": {
+            "type": "object",
+            "properties": {
+                "uid": {"type": "string"},
+                "displayName": {"type": "string"}
+            },
+            "required": ["uid"]
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "versionId", "pageId", "title", "content", "createdBy", "lastEditedBy", "createdAt", "updatedAt"
       ]
     },
     "Notification": {
@@ -569,6 +622,12 @@
       },
       "description": "Stores wiki pages."
     },
+    "/wiki/{wikiPageId}/versions/{versionId}": {
+      "schema": {
+        "$ref": "#/entities/WikiPageVersion"
+      },
+      "description": "Stores the historical versions of a wiki page."
+    },
     "/notifications/{notificationId}": {
         "schema": {
             "$ref": "#/entities/Notification"
@@ -583,5 +642,3 @@
     }
   }
 }
-
-    

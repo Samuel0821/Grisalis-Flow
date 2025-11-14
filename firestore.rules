@@ -104,6 +104,15 @@ service cloud.firestore {
 
     match /wiki/{wikiPageId} {
         allow read, write: if isSignedIn();
+
+        // Rules for version history subcollection
+        match /versions/{versionId} {
+            // Anyone signed in can read the history
+            allow get, list: if isSignedIn();
+            // Only server-side functions (via batch writes) should create versions.
+            // No client-side creation, update, or deletion of history.
+            allow write: if false;
+        }
     }
 
     match /notifications/{notificationId} {
