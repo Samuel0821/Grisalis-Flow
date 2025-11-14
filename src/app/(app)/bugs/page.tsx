@@ -22,16 +22,18 @@ export default function BugsPage() {
         try {
           const [bugData, projectData] = await Promise.all([
             getBugs(),
-            getProjects(user.uid),
+            getProjects(), // Fetches all projects for bug association
           ]);
-          setBugs(bugData);
+          // Sort bugs by creation date, newest first
+          const sortedBugs = bugData.sort((a, b) => b.createdAt.toDate() - a.createdAt.toDate());
+          setBugs(sortedBugs);
           setProjects(projectData);
         } catch (error) {
           console.error('Error fetching data:', error);
           toast({
             variant: 'destructive',
-            title: 'Error al cargar datos',
-            description: 'No se pudieron cargar los bugs o proyectos.',
+            title: 'Error loading data',
+            description: 'Could not load bugs or projects.',
           });
         } finally {
           setIsLoading(false);

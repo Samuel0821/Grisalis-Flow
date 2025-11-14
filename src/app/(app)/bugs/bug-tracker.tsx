@@ -31,7 +31,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { createBug, Bug, Project, BugPriority, BugStatus } from '@/lib/firebase/firestore';
+import { createBug, updateBugStatus, Bug, Project, BugPriority, BugStatus } from '@/lib/firebase/firestore';
 import { useAuth } from '@/hooks/use-auth';
 import { Loader2, PlusCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
@@ -64,7 +64,10 @@ export function BugTracker({
   const { toast } = useToast();
   const [bugs, setBugs] = useState<Bug[]>(initialBugs);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false);
+  const [selectedBug, setSelectedBug] = useState<Bug | null>(null);
+
 
   // Form state
   const [title, setTitle] = useState('');
@@ -102,25 +105,54 @@ export function BugTracker({
       });
       onBugCreated(newBug); // Update parent state
       setBugs((prev) => [newBug, ...prev]); // Update local state
-      toast({ title: '¡Éxito!', description: 'El bug ha sido reportado.' });
+      toast({ title: 'Success!', description: 'The bug has been reported.' });
       resetForm();
-      setIsDialogOpen(false);
+      setIsCreateDialogOpen(false);
     } catch (error) {
       console.error('Error reporting bug:', error);
       toast({
         variant: 'destructive',
-        title: 'Error al reportar bug',
-        description: 'No se pudo reportar el bug. Por favor, inténtalo de nuevo.',
+        title: 'Error reporting bug',
+        description: 'Could not report the bug. Please try again.',
       });
     } finally {
       setIsSubmitting(false);
     }
   };
 
+  const handleBugClick = (bug: Bug) => {
+    setSelectedBug(bug);
+    setIsDetailDialogOpen(true);
+  };
+
+  const handleStatusChange = async (newStatus: BugStatus) => {
+    if (!selectedBug) return;
+
+    // Optimistic update
+    const originalBugs = bugs;
+    const updatedBugs = bugs.map(b => b.id === selectedBug.id ? { ...b, status: newStatus } : b);
+    setBugs(updatedBugs);
+    setSelectedBug(prev => prev ? { ...prev, status: newStatus } : null);
+
+    try {
+      await updateBugStatus(selectedBug.id, newStatus);
+      toast({ title: 'Success!', description: 'Bug status updated.' });
+    } catch (error) {
+      console.error('Error updating bug status:', error);
+      setBugs(originalBugs); // Revert on error
+      setSelectedBug(prev => prev ? { ...prev, status: selectedBug.status } : null);
+      toast({
+        variant: 'destructive',
+        title: 'Error updating status',
+        description: 'Could not update the bug status. Please try again.',
+      });
+    }
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex justify-end">
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
           <DialogTrigger asChild>
             <Button>
               <PlusCircle className="mr-2" />
@@ -230,7 +262,7 @@ export function BugTracker({
               bugs.map((bug) => {
                 const project = projects.find((p) => p.id === bug.projectId);
                 return (
-                  <TableRow key={bug.id}>
+                  <TableRow key={bug.id} onClick={() => handleBugClick(bug)} className="cursor-pointer">
                     <TableCell className="font-medium">{bug.title}</TableCell>
                     <TableCell>{project?.name || 'N/A'}</TableCell>
                     <TableCell>
@@ -255,6 +287,60 @@ export function BugTracker({
           </TableBody>
         </Table>
       </div>
+
+       <Dialog open={isDetailDialogOpen} onOpenChange={setIsDetailDialogOpen}>
+        <DialogContent className="sm:max-w-xl">
+          {selectedBug && (
+            <>
+              <DialogHeader>
+                 <DialogTitle>{selectedBug.title}</DialogTitle>
+                <DialogDescription>
+                  Reported {selectedBug.createdAt?.toDate && formatDistanceToNow(selectedBug.createdAt.toDate(), { addSuffix: true })}
+                </DialogDescription>
+              </DialogHeader>
+              <div className="py-4 space-y-6">
+                <div className="text-sm">
+                    <p className="font-semibold text-foreground mb-1">Description</p>
+                    <div className="text-muted-foreground p-3 bg-muted rounded-md min-h-[100px]">
+                      {selectedBug.description ? (
+                          <p className="whitespace-pre-wrap">{selectedBug.description}</p>
+                      ) : (
+                          <p>No description provided.</p>
+                      )}
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label className="font-semibold text-foreground mb-1">Project</Label>
+                    <p className="text-sm text-muted-foreground">{projects.find(p => p.id === selectedBug.projectId)?.name || 'N/A'}</p>
+                  </div>
+                   <div>
+                    <Label className="font-semibold text-foreground mb-1">Priority</Label>
+                     <div>
+                       <Badge variant={priorityBadges[selectedBug.priority]} className="capitalize text-sm">{selectedBug.priority}</Badge>
+                     </div>
+                  </div>
+                   <div>
+                    <Label htmlFor="status-select" className="font-semibold text-foreground mb-1">Status</Label>
+                    <Select onValueChange={(v) => handleStatusChange(v as BugStatus)} value={selectedBug.status}>
+                      <SelectTrigger id="status-select" className="w-[180px]">
+                        <SelectValue placeholder="Select status" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="new">New</SelectItem>
+                        <SelectItem value="in_progress">In Progress</SelectItem>
+                        <SelectItem value="resolved">Resolved</SelectItem>
+                        <SelectItem value="closed">Closed</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              </div>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

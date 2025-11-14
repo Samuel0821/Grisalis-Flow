@@ -1,3 +1,4 @@
+
 import {
   getFirestore,
   collection,
@@ -79,18 +80,18 @@ export const createProject = async (
     return { id: docRef.id, ...projectData, createdAt: new Date(), updatedAt: new Date(), status: 'active' };
   } catch (error) {
     console.error('Error creating project: ', error);
-    throw new Error('No se pudo crear el proyecto.');
+    throw new Error('Could not create the project.');
   }
 };
 
 /**
- * Obtiene todos los proyectos creados por un usuario específico.
- * @param userId - El ID del usuario.
+ * Obtiene todos los proyectos.
  * @returns Un array de proyectos.
  */
-export const getProjects = async (userId: string): Promise<Project[]> => {
+export const getProjects = async (userId?: string): Promise<Project[]> => {
   try {
-    const q = query(collection(db, 'projects'), where('createdBy', '==', userId));
+    const projectsRef = collection(db, 'projects');
+    const q = userId ? query(projectsRef, where('createdBy', '==', userId)) : query(projectsRef);
     const querySnapshot = await getDocs(q);
     const projects: Project[] = [];
     querySnapshot.forEach((doc) => {
@@ -99,7 +100,7 @@ export const getProjects = async (userId: string): Promise<Project[]> => {
     return projects;
   } catch (error) {
     console.error('Error getting projects: ', error);
-    throw new Error('No se pudieron obtener los proyectos.');
+    throw new Error('Could not get projects.');
   }
 };
 
@@ -121,7 +122,7 @@ export const getProject = async (projectId: string): Promise<Project | null> => 
         }
     } catch (error) {
         console.error("Error getting project:", error);
-        throw new Error("No se pudo obtener el proyecto.");
+        throw new Error("Could not get the project.");
     }
 };
 
@@ -142,7 +143,7 @@ export const createTask = async (
     return { id: docRef.id, ...taskData, createdAt: new Date() };
   } catch (error) {
     console.error('Error creating task: ', error);
-    throw new Error('No se pudo crear la tarea.');
+    throw new Error('Could not create the task.');
   }
 };
 
@@ -160,7 +161,7 @@ export const getTasks = async (projectId: string): Promise<Task[]> => {
     return tasks;
   } catch (error) {
     console.error('Error getting tasks: ', error);
-    throw new Error('No se pudieron obtener las tareas.');
+    throw new Error('Could not get tasks.');
   }
 };
 
@@ -178,7 +179,7 @@ export const updateTaskStatus = async (
     await updateDoc(taskRef, { status });
   } catch (error) {
     console.error('Error updating task status: ', error);
-    throw new Error('No se pudo actualizar el estado de la tarea.');
+    throw new Error('Could not update the task status.');
   }
 };
 
@@ -201,7 +202,7 @@ export const createBug = async (
     return newBug as Bug;
   } catch (error) {
     console.error('Error creating bug: ', error);
-    throw new Error('No se pudo reportar el bug.');
+    throw new Error('Could not report the bug.');
   }
 };
 
@@ -219,7 +220,7 @@ export const getBugs = async (): Promise<Bug[]> => {
     return bugs;
   } catch (error) {
     console.error('Error getting bugs: ', error);
-    throw new Error('No se pudieron obtener los bugs.');
+    throw new Error('Could not get bugs.');
   }
 };
 
@@ -238,6 +239,6 @@ export const updateBugStatus = async (
     });
   } catch (error) {
     console.error('Error updating bug status: ', error);
-    throw new Error('No se pudo actualizar el estado del bug.');
+    throw new Error('Could not update the bug status.');
   }
 };
