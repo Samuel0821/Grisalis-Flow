@@ -29,7 +29,9 @@ type ColumnId = TaskStatus;
 
 const columns: { id: ColumnId; title: string }[] = [
   { id: 'backlog', title: 'Backlog' },
+  { id: 'todo', title: 'To-do' },
   { id: 'in_progress', title: 'In Progress' },
+  { id: 'testing', title: 'Testing' },
   { id: 'in_review', title: 'In Review' },
   { id: 'done', title: 'Done' },
 ];
@@ -48,7 +50,7 @@ const priorityBadges: Record<TaskPriority, string> = {
 
 function KanbanColumn({ title, tasks, columnId, onTaskClick }: { title: string; tasks: Task[]; columnId: ColumnId; onTaskClick: (task: Task) => void; }) {
   return (
-    <Card className="flex-1 flex flex-col bg-muted/50">
+    <Card className="flex-1 flex flex-col bg-muted/50 max-h-[calc(100vh-22rem)]">
       <CardHeader>
         <CardTitle className="text-lg flex items-center justify-between">
           <span>{title}</span>
@@ -60,9 +62,10 @@ function KanbanColumn({ title, tasks, columnId, onTaskClick }: { title: string; 
           <CardContent
             ref={provided.innerRef}
             {...provided.droppableProps}
-            className={`flex-1 flex flex-col gap-2 overflow-y-auto p-2 rounded-md transition-colors ${
+            className={cn(
+              'flex-1 flex flex-col gap-2 overflow-y-auto p-2 rounded-md transition-colors',
               snapshot.isDraggingOver ? 'bg-primary/10' : 'bg-transparent'
-            }`}
+            )}
           >
             {tasks.map((task, index) => (
               <Draggable key={task.id} draggableId={task.id} index={index}>
@@ -280,7 +283,7 @@ export function KanbanBoard({ projectId, initialTasks }: { projectId: string; in
             </DialogContent>
           </Dialog>
         </div>
-        <div className="flex-1 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-start">
+        <div className="flex-1 grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4 items-start">
           {columns.map((column) => (
             <KanbanColumn
               key={column.id}
@@ -328,3 +331,5 @@ export function KanbanBoard({ projectId, initialTasks }: { projectId: string; in
     </DragDropContext>
   );
 }
+
+    

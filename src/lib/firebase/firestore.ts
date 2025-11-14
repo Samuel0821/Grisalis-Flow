@@ -32,7 +32,7 @@ export interface Project extends DocumentData {
   updatedAt: any;
 }
 
-export type TaskStatus = 'backlog' | 'in_progress' | 'in_review' | 'done';
+export type TaskStatus = 'backlog' | 'todo' | 'in_progress' | 'testing' | 'in_review' | 'done';
 export type TaskPriority = 'low' | 'medium' | 'high';
 
 export interface Task extends DocumentData {
@@ -48,14 +48,17 @@ export interface Task extends DocumentData {
 
 export type BugStatus = 'new' | 'in_progress' | 'resolved' | 'closed';
 export type BugPriority = 'low' | 'medium' | 'high' | 'critical';
+export type BugSeverity = 'critical' | 'high' | 'medium' | 'low' | 'enhancement';
 
 export interface Bug extends DocumentData {
   id: string;
   projectId: string;
   title: string;
   description?: string;
+  reproductionSteps?: string;
   status: BugStatus;
   priority: BugPriority;
+  severity: BugSeverity;
   reportedBy: string;
   createdAt: any;
   updatedAt: any;
@@ -387,3 +390,5 @@ export const getWikiPageBySlug = async (slug: string): Promise<WikiPage | null> 
         throw new Error('Could not get wiki page.');
     }
 }
+
+    

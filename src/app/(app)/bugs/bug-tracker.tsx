@@ -31,7 +31,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { createBug, updateBugStatus, Bug, Project, BugPriority, BugStatus } from '@/lib/firebase/firestore';
+import { createBug, updateBugStatus, Bug, Project, BugPriority, BugStatus, BugSeverity } from '@/lib/firebase/firestore';
 import { useAuth } from '@/hooks/use-auth';
 import { Loader2, PlusCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
@@ -50,6 +50,15 @@ const statusBadges: Record<BugStatus, 'default' | 'secondary' | 'outline'> = {
     resolved: 'outline',
     closed: 'outline',
 };
+
+const severityBadges: Record<BugSeverity, 'destructive' | 'secondary' | 'default' | 'outline'> = {
+    critical: 'destructive',
+    high: 'destructive',
+    medium: 'secondary',
+    low: 'default',
+    enhancement: 'outline',
+};
+
 
 export function BugTracker({
   initialBugs,
@@ -72,14 +81,18 @@ export function BugTracker({
   // Form state
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
+  const [reproductionSteps, setReproductionSteps] = useState('');
   const [projectId, setProjectId] = useState('');
   const [priority, setPriority] = useState<BugPriority>('medium');
+  const [severity, setSeverity] = useState<BugSeverity>('medium');
 
   const resetForm = () => {
     setTitle('');
     setDescription('');
+    setReproductionSteps('');
     setProjectId('');
     setPriority('medium');
+    setSeverity('medium');
   };
 
   const handleReportBug = async (e: React.FormEvent) => {
@@ -98,8 +111,10 @@ export function BugTracker({
       const newBug = await createBug({
         title,
         description,
+        reproductionSteps,
         projectId,
         priority,
+        severity,
         status: 'new',
         reportedBy: user.uid,
       });
@@ -181,14 +196,28 @@ export function BugTracker({
                     disabled={isSubmitting}
                   />
                 </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="description" className="text-right">
+                <div className="grid grid-cols-4 items-start gap-4">
+                  <Label htmlFor="description" className="text-right pt-2">
                     Description
                   </Label>
                   <Textarea
                     id="description"
                     value={description}
                     onChange={(e) => setDescription(e.target.value)}
+                    className="col-span-3"
+                    placeholder="Describe the bug and its impact."
+                    disabled={isSubmitting}
+                    rows={3}
+                  />
+                </div>
+                 <div className="grid grid-cols-4 items-start gap-4">
+                  <Label htmlFor="reproduction" className="text-right pt-2">
+                    Reproduction
+                  </Label>
+                  <Textarea
+                    id="reproduction"
+                    value={reproductionSteps}
+                    onChange={(e) => setReproductionSteps(e.target.value)}
                     className="col-span-3"
                     placeholder="Describe the steps to reproduce the bug."
                     disabled={isSubmitting}
@@ -228,6 +257,23 @@ export function BugTracker({
                     </SelectContent>
                   </Select>
                 </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="severity" className="text-right">
+                    Severity
+                  </Label>
+                  <Select onValueChange={(v) => setSeverity(v as BugSeverity)} defaultValue="medium" disabled={isSubmitting}>
+                    <SelectTrigger className="col-span-3">
+                      <SelectValue placeholder="Select severity" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="critical">Critical</SelectItem>
+                      <SelectItem value="high">High</SelectItem>
+                      <SelectItem value="medium">Medium</SelectItem>
+                      <SelectItem value="low">Low</SelectItem>
+                      <SelectItem value="enhancement">Enhancement</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
               <DialogFooter>
                 <Button type="submit" disabled={isSubmitting}>
@@ -251,25 +297,26 @@ export function BugTracker({
           <TableHeader>
             <TableRow>
               <TableHead>Title</TableHead>
-              <TableHead>Project</TableHead>
-              <TableHead>Status</TableHead>
+              <TableHead>Severity</TableHead>
               <TableHead>Priority</TableHead>
+              <TableHead>Status</TableHead>
               <TableHead>Reported</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {bugs.length > 0 ? (
               bugs.map((bug) => {
-                const project = projects.find((p) => p.id === bug.projectId);
                 return (
                   <TableRow key={bug.id} onClick={() => handleBugClick(bug)} className="cursor-pointer">
                     <TableCell className="font-medium">{bug.title}</TableCell>
-                    <TableCell>{project?.name || 'N/A'}</TableCell>
                     <TableCell>
-                        <Badge variant={statusBadges[bug.status]} className="capitalize">{bug.status.replace('_', ' ')}</Badge>
+                      <Badge variant={severityBadges[bug.severity]} className="capitalize">{bug.severity}</Badge>
                     </TableCell>
                     <TableCell>
                       <Badge variant={priorityBadges[bug.priority]} className="capitalize">{bug.priority}</Badge>
+                    </TableCell>
+                    <TableCell>
+                        <Badge variant={statusBadges[bug.status]} className="capitalize">{bug.status.replace('_', ' ')}</Badge>
                     </TableCell>
                     <TableCell>
                       {bug.createdAt?.toDate && formatDistanceToNow(bug.createdAt.toDate(), { addSuffix: true })}
@@ -299,9 +346,9 @@ export function BugTracker({
                 </DialogDescription>
               </DialogHeader>
               <div className="py-4 space-y-6">
-                <div className="text-sm">
+                 <div className="text-sm">
                     <p className="font-semibold text-foreground mb-1">Description</p>
-                    <div className="text-muted-foreground p-3 bg-muted rounded-md min-h-[100px]">
+                    <div className="text-muted-foreground p-3 bg-muted rounded-md min-h-[80px]">
                       {selectedBug.description ? (
                           <p className="whitespace-pre-wrap">{selectedBug.description}</p>
                       ) : (
@@ -310,10 +357,27 @@ export function BugTracker({
                     </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="text-sm">
+                    <p className="font-semibold text-foreground mb-1">Reproduction Steps</p>
+                    <div className="text-muted-foreground p-3 bg-muted rounded-md min-h-[100px]">
+                      {selectedBug.reproductionSteps ? (
+                          <p className="whitespace-pre-wrap">{selectedBug.reproductionSteps}</p>
+                      ) : (
+                          <p>No reproduction steps provided.</p>
+                      )}
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-3 gap-4">
                   <div>
                     <Label className="font-semibold text-foreground mb-1">Project</Label>
                     <p className="text-sm text-muted-foreground">{projects.find(p => p.id === selectedBug.projectId)?.name || 'N/A'}</p>
+                  </div>
+                  <div>
+                    <Label className="font-semibold text-foreground mb-1">Severity</Label>
+                     <div>
+                       <Badge variant={severityBadges[selectedBug.severity]} className="capitalize text-sm">{selectedBug.severity}</Badge>
+                     </div>
                   </div>
                    <div>
                     <Label className="font-semibold text-foreground mb-1">Priority</Label>
@@ -321,7 +385,7 @@ export function BugTracker({
                        <Badge variant={priorityBadges[selectedBug.priority]} className="capitalize text-sm">{selectedBug.priority}</Badge>
                      </div>
                   </div>
-                   <div>
+                   <div className="col-span-3">
                     <Label htmlFor="status-select" className="font-semibold text-foreground mb-1">Status</Label>
                     <Select onValueChange={(v) => handleStatusChange(v as BugStatus)} value={selectedBug.status}>
                       <SelectTrigger id="status-select" className="w-[180px]">
@@ -344,3 +408,5 @@ export function BugTracker({
     </div>
   );
 }
+
+    
