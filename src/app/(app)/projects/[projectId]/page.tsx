@@ -1,8 +1,8 @@
 
 'use client';
 
-import { useEffect, useState, useMemo } from 'react';
-import { getProject, Project, getTasks, Task, getSprintsForProject, Sprint, getProjectMembers, ProjectMember } from '@/lib/firebase/firestore';
+import { useEffect, useState, useMemo, useCallback } from 'react';
+import { getProject, Project, getTasks, Task, getSprintsForProject, Sprint, getProjectMembers, ProjectMember, SprintStatus, updateSprintStatus } from '@/lib/firebase/firestore';
 import { useUser } from '@/firebase';
 import { Loader2 } from 'lucide-react';
 import { KanbanBoard } from './kanban-board';
@@ -10,9 +10,11 @@ import { SprintsView } from './sprints-view';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ProjectSettings } from './project-settings';
 import { ProjectDashboard } from './project-dashboard';
+import { useToast } from '@/hooks/use-toast';
 
 export default function ProjectDetailsPage({ params }: { params: { projectId: string } }) {
   const { user } = useUser();
+  const { toast } = useToast();
   const [project, setProject] = useState<Project | null>(null);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [sprints, setSprints] = useState<Sprint[]>([]);
@@ -51,7 +53,7 @@ export default function ProjectDetailsPage({ params }: { params: { projectId: st
   }, [user, params.projectId]);
 
   const initialTasks = useMemo(() => tasks, [tasks]);
-  const initialSprints = useMemo(() => sprints, [sprints]);
+  const initialSprints = useMemo(() => sprints.sort((a,b) => b.startDate.toDate().getTime() - a.startDate.toDate().getTime()), [sprints]);
   
   const handleSprintCreated = (newSprint: Sprint) => {
     setSprints(prevSprints => [...prevSprints, newSprint]);
@@ -61,9 +63,29 @@ export default function ProjectDetailsPage({ params }: { params: { projectId: st
     setTasks((prevTasks) => [...prevTasks, newTask]);
   };
   
-  const handleTaskStatusUpdated = (taskId: string, newStatus: Task['status']) => {
-    setTasks(prevTasks => prevTasks.map(t => t.id === taskId ? { ...t, status: newStatus } : t));
-  };
+  const handleTaskUpdated = useCallback((updatedTask: Partial<Task> & {id: string}) => {
+    setTasks(prevTasks => prevTasks.map(t => t.id === updatedTask.id ? { ...t, ...updatedTask } : t));
+  }, []);
+
+  const handleSprintStatusChange = useCallback(async (sprintId: string, newStatus: SprintStatus) => {
+    if (!user) return;
+    
+    const originalSprints = sprints;
+    const sprintToUpdate = sprints.find(s => s.id === sprintId);
+    if (!sprintToUpdate) return;
+    
+    // Optimistic UI update
+    setSprints(prev => prev.map(s => s.id === sprintId ? {...s, status: newStatus} : s));
+
+    try {
+      await updateSprintStatus(sprintId, sprintToUpdate.name, newStatus, sprintToUpdate.status, { uid: user.uid, displayName: user.displayName });
+      toast({ title: 'Success', description: 'Sprint status updated.' });
+    } catch (error) {
+      console.error(error);
+      setSprints(originalSprints);
+      toast({ variant: 'destructive', title: 'Error', description: 'Failed to update sprint status.' });
+    }
+  }, [sprints, user, toast]);
 
 
   if (loading) {
@@ -104,10 +126,22 @@ export default function ProjectDetailsPage({ params }: { params: { projectId: st
            <ProjectDashboard project={project} tasks={tasks} members={members} />
         </TabsContent>
         <TabsContent value="kanban" className="flex-1 mt-4">
-           <KanbanBoard projectId={project.id!} initialTasks={initialTasks} onTaskCreated={handleTaskCreated} onTaskStatusUpdated={handleTaskStatusUpdated} />
+           <KanbanBoard 
+              projectId={project.id!} 
+              initialTasks={initialTasks} 
+              sprints={initialSprints}
+              onTaskCreated={handleTaskCreated} 
+              onTaskUpdated={handleTaskUpdated} 
+            />
         </TabsContent>
         <TabsContent value="sprints" className="flex-1 mt-4">
-            <SprintsView projectId={project.id!} initialSprints={initialSprints} onSprintCreated={handleSprintCreated} />
+            <SprintsView 
+              projectId={project.id!} 
+              initialSprints={initialSprints}
+              tasks={initialTasks}
+              onSprintCreated={handleSprintCreated}
+              onStatusChange={handleSprintStatusChange}
+            />
         </TabsContent>
         <TabsContent value="settings">
             <ProjectSettings project={project} />
@@ -116,4 +150,3 @@ export default function ProjectDetailsPage({ params }: { params: { projectId: st
     </div>
   );
 }
-

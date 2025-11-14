@@ -16,7 +16,9 @@ import {
   orderBy,
   Timestamp,
   writeBatch,
-  onSnapshot
+  onSnapshot,
+  collectionGroup,
+  setDoc,
 } from 'firebase/firestore';
 import { initializeFirebase } from '@/firebase';
 
@@ -49,6 +51,7 @@ export type TaskPriority = 'low' | 'medium' | 'high';
 export interface Task extends DocumentData {
   id: string;
   projectId: string;
+  sprintId?: string;
   title: string;
   description?: string;
   status: TaskStatus;
@@ -170,7 +173,7 @@ export const getUserProfile = async (userId: string): Promise<UserProfile | null
         const docRef = doc(db, 'userProfiles', userId);
         const docSnap = await getDoc(docRef);
         if (docSnap.exists()) {
-            return docSnap.data() as UserProfile;
+            return { id: docSnap.id, ...docSnap.data() } as UserProfile;
         }
         return null;
     } catch (error) {
@@ -214,16 +217,14 @@ export const getAuditLogs = async (): Promise<AuditLog[]> => {
  * Crea un nuevo proyecto en Firestore y asigna al creador como 'owner'.
  */
 export const createProject = async (
-  projectData: Omit<Project, 'id' | 'createdAt' | 'updatedAt' | 'slug'>,
+  projectData: Omit<Project, 'id' | 'createdAt' | 'updatedAt'>,
   user: { uid: string, displayName: string | null, email: string | null }
 ): Promise<Project> => {
   const batch = writeBatch(db);
   const projectRef = doc(collection(db, 'projects'));
 
-  const slug = projectData.name.toLowerCase().replace(/\s+/g, '-').replace(/[^\w-]+/g, '');
   batch.set(projectRef, {
     ...projectData,
-    slug,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
     status: 'active'
@@ -249,39 +250,49 @@ export const createProject = async (
       details: projectData
   });
 
-  return { id: projectRef.id, ...projectData, slug, createdAt: new Date(), updatedAt: new Date(), status: 'active' };
+  return { id: projectRef.id, ...projectData, createdAt: new Date(), updatedAt: new Date(), status: 'active' };
 };
 
 /**
  * Obtiene los proyectos en los que un usuario es miembro.
  */
-export const getProjects = async (userId: string): Promise<Project[]> => {
+export const getProjects = async (userId?: string): Promise<Project[]> => {
   try {
-    const memberQuery = query(collection(db, 'projects'), where('memberIds', 'array-contains', userId));
-    const ownerQuery = query(collection(db, 'projects'), where('createdBy', '==', userId));
+    if (!userId) {
+        // If no user ID, get all projects (for admin/reporting purposes)
+        const projectsQuery = query(collection(db, 'projects'), orderBy('createdAt', 'desc'));
+        const projectsSnapshot = await getDocs(projectsQuery);
+        const projects: Project[] = [];
+        projectsSnapshot.forEach((doc) => {
+            projects.push({ id: doc.id, ...doc.data() } as Project);
+        });
+        return projects;
+    }
 
-    const projectsMemberSnapshot = await getDocs(query(collectionGroup(db, 'members'), where('userId', '==', userId)));
-    const projectIds = projectsMemberSnapshot.docs.map(doc => doc.data().projectId);
+    const memberQuerySnapshot = await getDocs(query(collectionGroup(db, 'members'), where('userId', '==', userId)));
+    const projectIds = memberQuerySnapshot.docs.map(doc => doc.data().projectId);
 
     if (projectIds.length === 0) {
         return [];
     }
 
-    const projectsQuery = query(collection(db, 'projects'), where('id', 'in', projectIds));
-    const projectsSnapshot = await getDocs(projectsQuery);
+    // Firestore 'in' queries are limited to 30 elements. If more projects, split into chunks.
+    const projectChunks: string[][] = [];
+    for (let i = 0; i < projectIds.length; i += 30) {
+      projectChunks.push(projectIds.slice(i, i + 30));
+    }
 
     const projects: Project[] = [];
-    projectsSnapshot.forEach((doc) => {
-      projects.push({ id: doc.id, ...doc.data() } as Project);
-    });
-    
-    // This is less efficient, but necessary with the new structure.
-    const projectRefs = (await getDocs(query(collectionGroup(db, 'members'), where('userId', '==', userId)))).docs.map(d => doc(db, 'projects', d.data().projectId));
-    if(projectRefs.length === 0) return [];
-    
-    const projectSnapshots = await Promise.all(projectRefs.map(ref => getDoc(ref)));
-    
-    return projectSnapshots.filter(snap => snap.exists()).map(snap => ({ id: snap.id, ...snap.data() } as Project));
+    for (const chunk of projectChunks) {
+        const projectsQuery = query(collection(db, 'projects'), where('__name__', 'in', chunk));
+        const projectsSnapshot = await getDocs(projectsQuery);
+        projectsSnapshot.forEach((doc) => {
+            projects.push({ id: doc.id, ...doc.data() } as Project);
+        });
+    }
+
+    return projects.sort((a,b) => b.createdAt.toDate().getTime() - a.createdAt.toDate().getTime());
+
   } catch (error) {
     console.error('Error getting projects: ', error);
     throw new Error('Could not get projects.');
@@ -457,10 +468,13 @@ export const createTask = async (
   user: { uid: string, displayName: string | null }
 ): Promise<Task> => {
   try {
-    const docRef = await addDoc(collection(db, 'tasks'), {
+    const docRef = doc(collection(db, 'tasks'));
+    const newTask = {
       ...taskData,
+      id: docRef.id,
       createdAt: serverTimestamp(),
-    });
+    }
+    await setDoc(docRef, newTask);
      await createAuditLog({
         userId: user.uid,
         userName: user.displayName || 'Anonymous',
@@ -469,7 +483,7 @@ export const createTask = async (
         entityId: docRef.id,
         details: { projectId: taskData.projectId, title: taskData.title }
     });
-    return { id: docRef.id, ...taskData, createdAt: new Date() };
+    return { ...newTask, createdAt: new Date() } as Task;
   } catch (error) {
     console.error('Error creating task: ', error);
     throw new Error('Could not create the task.');
@@ -503,13 +517,17 @@ export const getTasksForProjects = async (projectIds: string[]): Promise<Task[]>
     return [];
   }
   try {
-    const q = query(collection(db, 'tasks'), where('projectId', 'in', projectIds));
-    const querySnapshot = await getDocs(q);
-    const tasks: Task[] = [];
-    querySnapshot.forEach((doc) => {
-      tasks.push({ id: doc.id, ...doc.data() } as Task);
-    });
-    return tasks;
+    // Firestore 'in' query limited to 30 elements per query.
+    const taskChunks: Task[] = [];
+    for (let i = 0; i < projectIds.length; i += 30) {
+        const chunk = projectIds.slice(i, i + 30);
+        const q = query(collection(db, 'tasks'), where('projectId', 'in', chunk));
+        const querySnapshot = await getDocs(q);
+        querySnapshot.forEach((doc) => {
+            taskChunks.push({ id: doc.id, ...doc.data() } as Task);
+        });
+    }
+    return taskChunks;
   } catch (error) {
     console.error('Error getting tasks for projects: ', error);
     throw new Error('Could not get tasks.');
@@ -530,7 +548,7 @@ export const updateTaskStatus = async (
 ): Promise<void> => {
   try {
     const taskRef = doc(db, 'tasks', taskId);
-    await updateDoc(taskRef, { status: newStatus });
+    await updateDoc(taskRef, { status: newStatus, updatedAt: serverTimestamp() });
      await createAuditLog({
         userId: user.uid,
         userName: user.displayName || 'Anonymous',
@@ -545,6 +563,25 @@ export const updateTaskStatus = async (
   }
 };
 
+/**
+ * Actualiza el sprint de una tarea.
+ */
+export const updateTaskSprint = async (
+  taskId: string,
+  sprintId: string | null,
+  user: { uid: string, displayName: string | null }
+): Promise<void> => {
+  try {
+    const taskRef = doc(db, 'tasks', taskId);
+    await updateDoc(taskRef, { sprintId: sprintId || null, updatedAt: serverTimestamp() });
+    
+    // We can consider adding an audit log here if needed
+  } catch (error) {
+    console.error('Error updating task sprint: ', error);
+    throw new Error('Could not update the task sprint.');
+  }
+};
+
 
 // ---- Funciones para Bugs ----
 
@@ -556,11 +593,15 @@ export const createBug = async (
   user: { uid: string, displayName: string | null }
 ): Promise<Bug> => {
   try {
-    const docRef = await addDoc(collection(db, 'bugs'), {
+    const docRef = doc(collection(db, 'bugs'));
+    const newBugData = {
       ...bugData,
+      id: docRef.id,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
-    });
+    };
+    await setDoc(docRef, newBugData);
+
     await createAuditLog({
         userId: user.uid,
         userName: user.displayName || 'Anonymous',
@@ -569,8 +610,7 @@ export const createBug = async (
         entityId: docRef.id,
         details: { projectId: bugData.projectId, title: bugData.title }
     });
-    const newBug = { id: docRef.id, ...bugData, createdAt: new Date(), updatedAt: new Date() };
-    return newBug as Bug;
+    return { ...newBugData, createdAt: new Date(), updatedAt: new Date() } as Bug;
   } catch (error) {
     console.error('Error creating bug: ', error);
     throw new Error('Could not report the bug.');
@@ -632,14 +672,17 @@ export const updateBugStatus = async (
  * Crea un nuevo registro de tiempo en Firestore.
  */
 export const createTimeLog = async (
-  timeLogData: Omit<TimeLog, 'id'>
+  timeLogData: Omit<TimeLog, 'id' | 'date'>
 ): Promise<TimeLog> => {
   try {
-    const docRef = await addDoc(collection(db, 'timeLogs'), {
-      ...timeLogData,
-      date: serverTimestamp(),
-    });
-    return { id: docRef.id, ...timeLogData, date: new Timestamp(Date.now() / 1000, 0) };
+    const docRef = doc(collection(db, 'timeLogs'));
+    const newLog = {
+        ...timeLogData,
+        id: docRef.id,
+        date: serverTimestamp(),
+    };
+    await setDoc(docRef, newLog);
+    return { ...newLog, date: new Timestamp(Date.now() / 1000, 0) } as TimeLog;
   } catch (error) {
     console.error('Error creating time log: ', error);
     throw new Error('Could not create the time log.');
@@ -676,12 +719,16 @@ export const createWikiPage = async (
 ): Promise<WikiPage> => {
   try {
     const slug = pageData.title.toLowerCase().replace(/\s+/g, '-').replace(/[^\w-]+/g, '');
-    const docRef = await addDoc(collection(db, 'wiki'), {
+    const docRef = doc(collection(db, 'wiki'));
+    
+    const newPageData = {
       ...pageData,
+      id: docRef.id,
       slug,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
-    });
+    }
+    await setDoc(docRef, newPageData);
     
     await createAuditLog({
         userId: user.uid,
@@ -743,11 +790,19 @@ export const getWikiPageBySlug = async (slug: string): Promise<WikiPage | null> 
  * Crea un nuevo sprint.
  */
 export const createSprint = async (
-  sprintData: Omit<Sprint, 'id'>,
+  sprintData: Omit<Sprint, 'id' | 'createdAt' | 'updatedAt'>,
   user: { uid: string, displayName: string | null }
 ): Promise<Sprint> => {
   try {
-    const docRef = await addDoc(collection(db, 'sprints'), sprintData);
+    const docRef = doc(collection(db, 'sprints'));
+    const newSprintData = {
+        ...sprintData,
+        id: docRef.id,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+    };
+    await setDoc(docRef, newSprintData);
+
      await createAuditLog({
         userId: user.uid,
         userName: user.displayName || 'Anonymous',
@@ -757,7 +812,7 @@ export const createSprint = async (
         details: { projectId: sprintData.projectId }
     });
     const docSnap = await getDoc(docRef);
-    return { id: docRef.id, ...docSnap.data() } as Sprint;
+    return { ...docSnap.data() } as Sprint;
   } catch (error) {
     console.error('Error creating sprint: ', error);
     throw new Error('Could not create the sprint.');
@@ -780,6 +835,36 @@ export const getSprintsForProject = async (projectId: string): Promise<Sprint[]>
     console.error('Error getting sprints: ', error);
     throw new Error('Could not get sprints.');
   }
+};
+
+/**
+ * Actualiza el estado de un sprint.
+ */
+export const updateSprintStatus = async (
+  sprintId: string,
+  sprintName: string,
+  newStatus: SprintStatus,
+  oldStatus: SprintStatus,
+  user: { uid: string, displayName: string | null }
+): Promise<void> => {
+    try {
+        const sprintRef = doc(db, 'sprints', sprintId);
+        await updateDoc(sprintRef, { 
+            status: newStatus,
+            updatedAt: serverTimestamp(),
+        });
+        await createAuditLog({
+            userId: user.uid,
+            userName: user.displayName || 'Anonymous',
+            action: `Changed status of sprint "${sprintName}" from ${oldStatus} to ${newStatus}`,
+            entity: 'sprint',
+            entityId: sprintId,
+            details: { from: oldStatus, to: newStatus }
+        });
+    } catch (error) {
+        console.error('Error updating sprint status: ', error);
+        throw new Error('Could not update sprint status.');
+    }
 };
 
 
@@ -812,12 +897,14 @@ export const getNotifications = async (userId: string): Promise<Notification[]> 
 export const addComment = async (taskId: string, commentData: Omit<Comment, 'id' | 'createdAt'>): Promise<Comment> => {
     try {
         const commentsRef = collection(db, 'tasks', taskId, 'comments');
-        const docRef = await addDoc(commentsRef, {
+        const docRef = doc(commentsRef);
+        const newComment = {
             ...commentData,
+            id: docRef.id,
             createdAt: serverTimestamp(),
-        });
-        const newComment = { id: docRef.id, ...commentData, createdAt: new Timestamp(Date.now() / 1000, 0) };
-        return newComment as Comment;
+        };
+        await setDoc(docRef, newComment);
+        return { ...newComment, createdAt: new Timestamp(Date.now() / 1000, 0) } as Comment;
     } catch (error) {
         console.error("Error adding comment:", error);
         throw new Error("Could not add comment.");
@@ -843,5 +930,3 @@ export const getComments = (taskId: string, callback: (comments: Comment[]) => v
 
     return unsubscribe;
 }
-
-    

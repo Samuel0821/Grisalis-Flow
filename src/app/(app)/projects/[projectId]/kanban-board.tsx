@@ -5,7 +5,7 @@ import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { PlusCircle, Loader2, ArrowUp, ArrowRight, ArrowDown, MessageSquare } from 'lucide-react';
-import { Task, createTask, updateTaskStatus, TaskStatus, TaskPriority, Comment, addComment, getComments } from '@/lib/firebase/firestore';
+import { Task, createTask, updateTaskStatus, TaskStatus, TaskPriority, Comment, addComment, getComments, Sprint, updateTaskSprint } from '@/lib/firebase/firestore';
 import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -105,7 +105,7 @@ function KanbanColumn({ title, tasks, columnId, onTaskClick }: { title: string; 
   );
 }
 
-function TaskDetailDialog({ task, isOpen, onOpenChange }: { task: Task | null; isOpen: boolean; onOpenChange: (open: boolean) => void; }) {
+function TaskDetailDialog({ task, sprints, isOpen, onOpenChange, onTaskUpdated }: { task: Task | null; sprints: Sprint[]; isOpen: boolean; onOpenChange: (open: boolean) => void; onTaskUpdated: (updatedTask: Partial<Task> & {id: string}) => void; }) {
     const { user } = useAuth();
     const { toast } = useToast();
     const [comments, setComments] = useState<Comment[]>([]);
@@ -141,6 +141,22 @@ function TaskDetailDialog({ task, isOpen, onOpenChange }: { task: Task | null; i
             setIsSubmittingComment(false);
         }
     };
+    
+    const handleSprintChange = async (sprintId: string | null) => {
+      if (!task || !user) return;
+      const originalSprintId = task.sprintId;
+      
+      onTaskUpdated({ id: task.id, sprintId: sprintId || undefined });
+      
+      try {
+        await updateTaskSprint(task.id, sprintId, { uid: user.uid, displayName: user.displayName });
+        toast({ title: 'Sprint Updated', description: `Task has been moved to a new sprint.`});
+      } catch (error) {
+        console.error(error);
+        onTaskUpdated({ id: task.id, sprintId: originalSprintId });
+        toast({ variant: 'destructive', title: 'Error', description: 'Could not update task sprint.' });
+      }
+    };
 
     if (!task) return null;
 
@@ -159,6 +175,23 @@ function TaskDetailDialog({ task, isOpen, onOpenChange }: { task: Task | null; i
                     </DialogDescription>
                 </DialogHeader>
                 <div className="py-4 space-y-6 max-h-[60vh] overflow-y-auto pr-4">
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="text-sm">
+                            <Label className="font-semibold text-foreground mb-1">Sprint</Label>
+                             <Select onValueChange={(val) => handleSprintChange(val === 'none' ? null : val)} value={task.sprintId || 'none'}>
+                                <SelectTrigger>
+                                    <SelectValue placeholder="Assign to a sprint" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="none">No Sprint</SelectItem>
+                                    {sprints.filter(s => s.status !== 'completed').map(sprint => (
+                                        <SelectItem key={sprint.id} value={sprint.id}>{sprint.name}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                    </div>
+
                     <div className="text-sm">
                         <p className="font-semibold text-foreground mb-1">Description</p>
                         <div className="text-muted-foreground p-3 bg-muted rounded-md min-h-[60px]">
@@ -224,7 +257,7 @@ function TaskDetailDialog({ task, isOpen, onOpenChange }: { task: Task | null; i
 }
 
 
-export function KanbanBoard({ projectId, initialTasks, onTaskCreated, onTaskStatusUpdated }: { projectId: string; initialTasks: Task[]; onTaskCreated: (task: Task) => void; onTaskStatusUpdated: (taskId: string, newStatus: TaskStatus) => void; }) {
+export function KanbanBoard({ projectId, initialTasks, sprints, onTaskCreated, onTaskUpdated }: { projectId: string; initialTasks: Task[]; sprints: Sprint[]; onTaskCreated: (task: Task) => void; onTaskUpdated: (updatedTask: Partial<Task> & {id: string}) => void; }) {
   const { user } = useAuth();
   const { toast } = useToast();
   const [tasks, setTasks] = useState(initialTasks);
@@ -236,6 +269,7 @@ export function KanbanBoard({ projectId, initialTasks, onTaskCreated, onTaskStat
   const [newTaskTitle, setNewTaskTitle] = useState('');
   const [newTaskDescription, setNewTaskDescription] = useState('');
   const [newTaskPriority, setNewTaskPriority] = useState<TaskPriority>('medium');
+  const [newTaskSprintId, setNewTaskSprintId] = useState<string>('');
   
   const [isBrowser, setIsBrowser] = useState(false);
   
@@ -256,6 +290,7 @@ export function KanbanBoard({ projectId, initialTasks, onTaskCreated, onTaskStat
     setNewTaskTitle('');
     setNewTaskDescription('');
     setNewTaskPriority('medium');
+    setNewTaskSprintId('');
   }
 
   const handleCreateTask = async (e: React.FormEvent) => {
@@ -271,14 +306,19 @@ export function KanbanBoard({ projectId, initialTasks, onTaskCreated, onTaskStat
 
     setIsSubmitting(true);
     try {
-      const newTask = await createTask({
+      const taskData: Omit<Task, 'id' | 'createdAt'> = {
         projectId,
         title: newTaskTitle,
         description: newTaskDescription,
         status: 'backlog',
         priority: newTaskPriority,
         createdBy: user.uid,
-      }, { uid: user.uid, displayName: user.displayName });
+      };
+      if (newTaskSprintId) {
+        taskData.sprintId = newTaskSprintId;
+      }
+      
+      const newTask = await createTask(taskData, { uid: user.uid, displayName: user.displayName });
       onTaskCreated(newTask);
       toast({ title: 'Success!', description: 'Task created.' });
       resetCreateForm();
@@ -290,7 +330,7 @@ export function KanbanBoard({ projectId, initialTasks, onTaskCreated, onTaskStat
       setIsSubmitting(false);
     }
   };
-
+  
   const onDragEnd: OnDragEndResponder = async (result) => {
     const { source, destination, draggableId } = result;
 
@@ -309,7 +349,7 @@ export function KanbanBoard({ projectId, initialTasks, onTaskCreated, onTaskStat
     const newStatus = destination.droppableId as Task['status'];
     
     // Optimistic UI update
-    onTaskStatusUpdated(draggableId, newStatus);
+    onTaskUpdated({ id: draggableId, status: newStatus });
     
     try {
       await updateTaskStatus(draggableId, movedTask.title, newStatus, oldStatus, { uid: user.uid, displayName: user.displayName });
@@ -317,9 +357,15 @@ export function KanbanBoard({ projectId, initialTasks, onTaskCreated, onTaskStat
       console.error(error);
       toast({ variant: 'destructive', title: 'Error updating task' });
       // Revert UI on failure
-      onTaskStatusUpdated(draggableId, oldStatus);
+      onTaskUpdated({ id: draggableId, status: oldStatus });
     }
   };
+
+  const handleInternalTaskUpdate = (updatedTask: Partial<Task> & {id: string}) => {
+    // This is called from the TaskDetailDialog to keep local state in sync
+    setSelectedTask(prev => prev ? { ...prev, ...updatedTask } : null);
+    onTaskUpdated(updatedTask);
+  }
 
   if (!isBrowser) {
     return null; // Don't render DND on server
@@ -386,6 +432,22 @@ export function KanbanBoard({ projectId, initialTasks, onTaskCreated, onTaskStat
                         </SelectContent>
                     </Select>
                   </div>
+                   <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="sprint" className="text-right">
+                      Sprint
+                    </Label>
+                    <Select onValueChange={setNewTaskSprintId} value={newTaskSprintId} disabled={isSubmitting}>
+                        <SelectTrigger className="col-span-3">
+                            <SelectValue placeholder="Assign to a sprint (optional)" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="">No Sprint</SelectItem>
+                            {sprints.filter(s => s.status !== 'completed').map(sprint => (
+                                <SelectItem key={sprint.id} value={sprint.id}>{sprint.name}</SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                  </div>
                 </div>
                 <DialogFooter>
                   <Button type="submit" disabled={isSubmitting}>
@@ -421,6 +483,7 @@ export function KanbanBoard({ projectId, initialTasks, onTaskCreated, onTaskStat
       
       <TaskDetailDialog 
         task={selectedTask}
+        sprints={sprints}
         isOpen={isDetailDialogOpen}
         onOpenChange={(open) => {
           if (!open) {
@@ -428,6 +491,7 @@ export function KanbanBoard({ projectId, initialTasks, onTaskCreated, onTaskStat
           }
           setIsDetailDialogOpen(open);
         }}
+        onTaskUpdated={handleInternalTaskUpdate}
       />
 
     </DragDropContext>

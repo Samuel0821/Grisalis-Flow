@@ -1,11 +1,11 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
-import { PlusCircle, Loader2, Calendar as CalendarIcon, Flag } from 'lucide-react';
-import { Sprint, createSprint, SprintStatus } from '@/lib/firebase/firestore';
+import { PlusCircle, Loader2, Calendar as CalendarIcon, Flag, MoreVertical } from 'lucide-react';
+import { Sprint, createSprint, SprintStatus, Task } from '@/lib/firebase/firestore';
 import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -18,6 +18,12 @@ import {
   DialogTrigger,
   DialogClose
 } from '@/components/ui/dialog';
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { format } from 'date-fns';
@@ -26,6 +32,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { DateRange } from 'react-day-picker';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
+import { TaskList } from './task-list';
 
 const statusBadges: Record<SprintStatus, 'default' | 'secondary' | 'outline'> = {
   planning: 'secondary',
@@ -33,14 +40,58 @@ const statusBadges: Record<SprintStatus, 'default' | 'secondary' | 'outline'> = 
   completed: 'outline',
 };
 
+function SprintCard({ sprint, tasks, onStatusChange }: { sprint: Sprint; tasks: Task[]; onStatusChange: (sprintId: string, newStatus: SprintStatus) => void; }) {
+  const sprintTasks = useMemo(() => tasks.filter(t => t.sprintId === sprint.id), [tasks, sprint.id]);
+  
+  return (
+    <Card className="shadow-sm">
+        <CardHeader>
+            <CardTitle className="flex items-center justify-between">
+                <span>{sprint.name}</span>
+                <div className="flex items-center gap-2">
+                    <Badge variant={statusBadges[sprint.status]} className="capitalize">{sprint.status}</Badge>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-8 w-8">
+                          <MoreVertical className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        {sprint.status === 'planning' && (
+                            <DropdownMenuItem onClick={() => onStatusChange(sprint.id, 'active')}>Start Sprint</DropdownMenuItem>
+                        )}
+                        {sprint.status === 'active' && (
+                            <DropdownMenuItem onClick={() => onStatusChange(sprint.id, 'completed')}>Complete Sprint</DropdownMenuItem>
+                        )}
+                         <DropdownMenuItem disabled>Edit</DropdownMenuItem>
+                         <DropdownMenuItem disabled className="text-destructive">Delete</DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                </div>
+            </CardTitle>
+            <CardDescription>
+                {format(sprint.startDate.toDate(), 'PPP')} - {format(sprint.endDate.toDate(), 'PPP')}
+            </CardDescription>
+        </CardHeader>
+        <CardContent>
+           <TaskList tasks={sprintTasks} />
+        </CardContent>
+    </Card>
+  )
+}
+
 export function SprintsView({
   projectId,
   initialSprints,
+  tasks,
   onSprintCreated,
+  onStatusChange,
 }: {
   projectId: string;
   initialSprints: Sprint[];
+  tasks: Task[];
   onSprintCreated: (sprint: Sprint) => void;
+  onStatusChange: (sprintId: string, newStatus: SprintStatus) => void;
 }) {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -51,6 +102,11 @@ export function SprintsView({
   // Form state
   const [sprintName, setSprintName] = useState('');
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
+  
+  // Update local state when initial sprints change from parent
+  useState(() => {
+    setSprints(initialSprints)
+  }, [initialSprints]);
 
   const resetForm = () => {
     setSprintName('');
@@ -78,7 +134,6 @@ export function SprintsView({
         status: 'planning',
       }, { uid: user.uid, displayName: user.displayName });
       onSprintCreated(newSprint);
-      setSprints((prev) => [...prev, newSprint]);
       toast({ title: 'Success!', description: 'Sprint created.' });
       resetForm();
       setIsCreateDialogOpen(false);
@@ -182,31 +237,20 @@ export function SprintsView({
         </Dialog>
       </div>
       
-       <div className="border rounded-lg">
+       <div className="space-y-4">
           {sprints.length > 0 ? (
-            <div className="p-4 space-y-4">
+            <div className="space-y-4">
                 {sprints.map((sprint) => (
-                    <Card key={sprint.id} className="shadow-sm">
-                        <CardHeader>
-                            <CardTitle className="flex items-center justify-between">
-                                <span>{sprint.name}</span>
-                                 <Badge variant={statusBadges[sprint.status]} className="capitalize">{sprint.status}</Badge>
-                            </CardTitle>
-                            <CardDescription>
-                                {format(sprint.startDate.toDate(), 'PPP')} - {format(sprint.endDate.toDate(), 'PPP')}
-                            </CardDescription>
-                        </CardHeader>
-                        <CardContent>
-                           <p className="text-sm text-muted-foreground">Tasks will be shown here.</p>
-                        </CardContent>
-                         <CardFooter>
-                           <Button variant="secondary" size="sm">View Details</Button>
-                        </CardFooter>
-                    </Card>
+                    <SprintCard 
+                        key={sprint.id}
+                        sprint={sprint}
+                        tasks={tasks}
+                        onStatusChange={onStatusChange}
+                    />
                 ))}
             </div>
           ) : (
-            <div className="flex h-64 items-center justify-center text-center">
+            <div className="flex h-64 items-center justify-center text-center rounded-lg border border-dashed">
                 <div className="flex flex-col items-center gap-2 text-muted-foreground">
                     <Flag className="h-10 w-10" />
                     <h2 className="text-lg font-semibold">No sprints yet</h2>
