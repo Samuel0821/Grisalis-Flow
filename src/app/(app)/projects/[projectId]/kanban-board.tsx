@@ -484,7 +484,7 @@ export function KanbanBoard({ projectId, initialTasks, sprints, onTaskCreated, o
   const [newTaskTitle, setNewTaskTitle] = useState('');
   const [newTaskDescription, setNewTaskDescription] = useState('');
   const [newTaskPriority, setNewTaskPriority] = useState<TaskPriority>('medium');
-  const [newTaskSprintId, setNewTaskSprintId] = useState<string>('');
+  const [newTaskSprintId, setNewTaskSprintId] = useState<string | undefined>();
   
   const [isBrowser, setIsBrowser] = useState(false);
   const [projectMembers, setProjectMembers] = useState<ProjectMember[]>([]);
@@ -514,7 +514,7 @@ export function KanbanBoard({ projectId, initialTasks, sprints, onTaskCreated, o
     setNewTaskTitle('');
     setNewTaskDescription('');
     setNewTaskPriority('medium');
-    setNewTaskSprintId('');
+    setNewTaskSprintId(undefined);
   }
 
   const handleCreateTask = async (e: React.FormEvent) => {
@@ -539,7 +539,8 @@ export function KanbanBoard({ projectId, initialTasks, sprints, onTaskCreated, o
         type: 'task',
         createdBy: user.uid,
       };
-      if (newTaskSprintId) {
+      
+      if (newTaskSprintId && newTaskSprintId !== 'none') {
         taskData.sprintId = newTaskSprintId;
       }
       
@@ -675,7 +676,7 @@ export function KanbanBoard({ projectId, initialTasks, sprints, onTaskCreated, o
                             <SelectValue placeholder="Assign to a sprint (optional)" />
                         </SelectTrigger>
                         <SelectContent>
-                            <SelectItem value="">No Sprint</SelectItem>
+                            <SelectItem value="none">No Sprint</SelectItem>
                             {sprints.filter(s => s.status !== 'completed').map(sprint => (
                                 <SelectItem key={sprint.id} value={sprint.id}>{sprint.name}</SelectItem>
                             ))}
