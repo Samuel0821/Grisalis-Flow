@@ -1,13 +1,12 @@
 
 'use client';
 
-import { useMemo, useState, useEffect } from 'react';
+import { useMemo } from 'react';
+import dynamic from 'next/dynamic';
 import { Project, Task, ProjectMember, TaskStatus, Sprint } from '@/lib/firebase/firestore';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { BarChart, Users, ListTodo, Bug, CheckCircle, TrendingDown } from 'lucide-react';
-import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
-import { Bar, XAxis, YAxis, ResponsiveContainer, Line, ComposedChart, Area } from 'recharts';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Users, ListTodo, Bug, CheckCircle } from 'lucide-react';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import {
   Table,
   TableBody,
@@ -16,8 +15,19 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { differenceInDays, format, isAfter } from 'date-fns';
 import { Skeleton } from '@/components/ui/skeleton';
+
+// Dynamic imports for charts
+const BurndownChart = dynamic(() => import('./project-burndown-chart').then(mod => mod.BurndownChart), {
+  ssr: false,
+  loading: () => <Skeleton className="h-[300px] w-full" />,
+});
+
+const TasksByStatusChart = dynamic(() => import('./tasks-by-status-chart').then(mod => mod.TasksByStatusChart), {
+  ssr: false,
+  loading: () => <Skeleton className="h-[300px] w-full" />,
+});
+
 
 interface DashboardCardProps {
   title: string;
@@ -39,92 +49,6 @@ function DashboardCard({ title, value, icon }: DashboardCardProps) {
   );
 }
 
-function BurndownChart({ tasks, sprint }: { tasks: Task[]; sprint: Sprint | undefined }) {
-  const [isClient, setIsClient] = useState(false);
-
-  useEffect(() => {
-    setIsClient(true);
-  }, []);
-
-  const chartData = useMemo(() => {
-    if (!sprint || sprint.status !== 'active') return [];
-
-    const startDate = sprint.startDate.toDate();
-    const endDate = sprint.endDate.toDate();
-    const totalDays = differenceInDays(endDate, startDate);
-    const sprintTasks = tasks.filter(t => t.sprintId === sprint.id);
-    const totalTaskCount = sprintTasks.length;
-
-    if (totalTaskCount === 0) return [];
-
-    const data = [];
-    const tasksPerDayIdeal = totalTaskCount / (totalDays || 1);
-
-    for (let i = 0; i <= totalDays; i++) {
-      const currentDate = new Date(startDate);
-      currentDate.setDate(startDate.getDate() + i);
-      
-      const idealRemaining = Math.max(0, totalTaskCount - (tasksPerDayIdeal * i));
-
-      // Calculate actual remaining tasks
-      const remainingTasks = sprintTasks.filter(task => {
-        const taskCompletedAt = task.updatedAt?.toDate();
-        // A task is remaining if it's not 'done' OR if it was completed after the current day in the loop
-        return task.status !== 'done' || (taskCompletedAt && isAfter(taskCompletedAt, currentDate));
-      }).length;
-
-      data.push({
-        date: format(currentDate, 'MMM d'),
-        ideal: idealRemaining,
-        actual: remainingTasks,
-      });
-    }
-
-    return data;
-  }, [sprint, tasks]);
-
-  if (!sprint || sprint.status !== 'active') {
-    return (
-      <Card className='md:col-span-2'>
-        <CardHeader>
-            <CardTitle className="flex items-center gap-2"><TrendingDown /> Active Sprint Burndown</CardTitle>
-            <CardDescription>Progress of the currently active sprint.</CardDescription>
-        </CardHeader>
-        <CardContent className="flex items-center justify-center h-[250px] text-muted-foreground">
-            No active sprint to display.
-        </CardContent>
-      </Card>
-    )
-  }
-
-  return (
-    <Card className='md:col-span-2'>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2"><TrendingDown /> {sprint.name} - Burndown</CardTitle>
-        <CardDescription>
-          Ideal vs. actual progress for the active sprint.
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <ChartContainer config={{}} className="h-[250px] w-full">
-          {!isClient ? <Skeleton className="h-full w-full" /> : (
-            <ResponsiveContainer>
-              <ComposedChart data={chartData}>
-                 <XAxis dataKey="date" tickLine={false} axisLine={false} tickMargin={8} fontSize={12} />
-                 <YAxis domain={[0, 'dataMax + 2']} tickLine={false} axisLine={false} tickMargin={8} fontSize={12} allowDecimals={false} />
-                <ChartTooltip content={<ChartTooltipContent />} />
-                <Line type="monotone" dataKey="ideal" stroke="#8884d8" strokeDasharray="5 5" strokeWidth={2} dot={false} name="Ideal" />
-                <Line type="monotone" dataKey="actual" stroke="hsl(var(--primary))" strokeWidth={2} dot={false} name="Actual" />
-                <Area type="monotone" dataKey="actual" fill="hsl(var(--primary) / 0.1)" stroke="none" />
-              </ComposedChart>
-            </ResponsiveContainer>
-          )}
-        </ChartContainer>
-      </CardContent>
-    </Card>
-  );
-}
-
 
 export function ProjectDashboard({
   project,
@@ -137,11 +61,6 @@ export function ProjectDashboard({
   members: ProjectMember[];
   sprints: Sprint[];
 }) {
-  const [isClient, setIsClient] = useState(false);
-
-  useEffect(() => {
-    setIsClient(true);
-  }, []);
 
   const taskStatusCounts = useMemo(() => {
     const counts: Record<TaskStatus, number> = {
@@ -166,16 +85,6 @@ export function ProjectDashboard({
   
   const activeSprint = useMemo(() => sprints.find(s => s.status === 'active'), [sprints]);
 
-
-  const chartData = [
-    { status: 'Backlog', count: taskStatusCounts.backlog, fill: 'var(--chart-1)' },
-    { status: 'To-do', count: taskStatusCounts.todo, fill: 'var(--chart-2)' },
-    { status: 'In Prog.', count: taskStatusCounts.in_progress, fill: 'var(--chart-3)' },
-    { status: 'Testing', count: taskStatusCounts.testing, fill: 'var(--chart-4)' },
-    { status: 'Review', count: taskStatusCounts.in_review, fill: 'var(--chart-5)' },
-    { status: 'Done', count: taskStatusCounts.done, fill: 'var(--color-green-500)' },
-  ];
-
   return (
     <div className="space-y-6">
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
@@ -196,21 +105,7 @@ export function ProjectDashboard({
             <CardDescription>A breakdown of tasks in each stage of the workflow.</CardDescription>
           </CardHeader>
           <CardContent>
-            <ChartContainer config={{}} className="h-[250px] w-full">
-               {!isClient ? <Skeleton className="h-full w-full" /> : (
-                  <ResponsiveContainer>
-                    <BarChart data={chartData} margin={{ top: 20, right: 20, bottom: 5, left: 0 }}>
-                      <XAxis dataKey="status" tickLine={false} axisLine={false} tickMargin={8} fontSize={12} />
-                      <YAxis tickLine={false} axisLine={false} tickMargin={8} fontSize={12} allowDecimals={false} />
-                      <ChartTooltip
-                        cursor={false}
-                        content={<ChartTooltipContent indicator="dot" />}
-                      />
-                      <Bar dataKey="count" radius={4} />
-                    </BarChart>
-                  </ResponsiveContainer>
-               )}
-            </ChartContainer>
+             <TasksByStatusChart taskStatusCounts={taskStatusCounts} />
           </CardContent>
         </Card>
         
