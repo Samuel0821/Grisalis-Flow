@@ -38,7 +38,8 @@ service cloud.firestore {
       allow delete: if isProjectOwner(projectId) || isAdmin();
 
       match /members/{userId} {
-        allow read: if isProjectMember(projectId) || isAdmin();
+        allow get: if isProjectMember(projectId) || isAdmin();
+        allow list: if isProjectMember(projectId) || isAdmin();
         allow write: if isProjectOwner(projectId) || isAdmin();
       }
     }
