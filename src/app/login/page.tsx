@@ -99,7 +99,6 @@ export default function LoginPage() {
 
   const handleSetupAdmin = async () => {
     setIsSeeding(true);
-    const db = getFirestore();
 
     const admin = { name: 'Samuel Grisales', email: 'samuel.grisales@grisalistech.com', role: 'admin' as const };
     const defaultPassword = 'GrisalisFlow2024!';
@@ -237,11 +236,6 @@ export default function LoginPage() {
               </Button>
             </form>
           </CardContent>
-          <CardFooter className="flex flex-col gap-4">
-            <div className="text-center text-sm text-muted-foreground">
-              La contraseña por defecto para el administrador es: <span className="font-bold">GrisalisFlow2024!</span>
-            </div>
-          </CardFooter>
         </Card>
       </div>
     </main>
