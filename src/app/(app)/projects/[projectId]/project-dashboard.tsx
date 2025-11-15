@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { Project, Task, ProjectMember, TaskStatus, Sprint } from '@/lib/firebase/firestore';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { BarChart, Users, ListTodo, Bug, CheckCircle, TrendingDown } from 'lucide-react';
@@ -17,6 +17,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { differenceInDays, format, isAfter } from 'date-fns';
+import { Skeleton } from '@/components/ui/skeleton';
 
 interface DashboardCardProps {
   title: string;
@@ -39,6 +40,12 @@ function DashboardCard({ title, value, icon }: DashboardCardProps) {
 }
 
 function BurndownChart({ tasks, sprint }: { tasks: Task[]; sprint: Sprint | undefined }) {
+  const [isClient, setIsClient] = useState(false);
+
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
+
   const chartData = useMemo(() => {
     if (!sprint || sprint.status !== 'active') return [];
 
@@ -100,16 +107,18 @@ function BurndownChart({ tasks, sprint }: { tasks: Task[]; sprint: Sprint | unde
       </CardHeader>
       <CardContent>
         <ChartContainer config={{}} className="h-[250px] w-full">
-          <ResponsiveContainer>
-            <ComposedChart data={chartData}>
-               <XAxis dataKey="date" tickLine={false} axisLine={false} tickMargin={8} fontSize={12} />
-               <YAxis domain={[0, 'dataMax + 2']} tickLine={false} axisLine={false} tickMargin={8} fontSize={12} allowDecimals={false} />
-              <ChartTooltip content={<ChartTooltipContent />} />
-              <Line type="monotone" dataKey="ideal" stroke="#8884d8" strokeDasharray="5 5" strokeWidth={2} dot={false} name="Ideal" />
-              <Line type="monotone" dataKey="actual" stroke="hsl(var(--primary))" strokeWidth={2} dot={false} name="Actual" />
-              <Area type="monotone" dataKey="actual" fill="hsl(var(--primary) / 0.1)" stroke="none" />
-            </ComposedChart>
-          </ResponsiveContainer>
+          {!isClient ? <Skeleton className="h-full w-full" /> : (
+            <ResponsiveContainer>
+              <ComposedChart data={chartData}>
+                 <XAxis dataKey="date" tickLine={false} axisLine={false} tickMargin={8} fontSize={12} />
+                 <YAxis domain={[0, 'dataMax + 2']} tickLine={false} axisLine={false} tickMargin={8} fontSize={12} allowDecimals={false} />
+                <ChartTooltip content={<ChartTooltipContent />} />
+                <Line type="monotone" dataKey="ideal" stroke="#8884d8" strokeDasharray="5 5" strokeWidth={2} dot={false} name="Ideal" />
+                <Line type="monotone" dataKey="actual" stroke="hsl(var(--primary))" strokeWidth={2} dot={false} name="Actual" />
+                <Area type="monotone" dataKey="actual" fill="hsl(var(--primary) / 0.1)" stroke="none" />
+              </ComposedChart>
+            </ResponsiveContainer>
+          )}
         </ChartContainer>
       </CardContent>
     </Card>
@@ -128,6 +137,11 @@ export function ProjectDashboard({
   members: ProjectMember[];
   sprints: Sprint[];
 }) {
+  const [isClient, setIsClient] = useState(false);
+
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
 
   const taskStatusCounts = useMemo(() => {
     const counts: Record<TaskStatus, number> = {
@@ -183,17 +197,19 @@ export function ProjectDashboard({
           </CardHeader>
           <CardContent>
             <ChartContainer config={{}} className="h-[250px] w-full">
-              <ResponsiveContainer>
-                <BarChart data={chartData} margin={{ top: 20, right: 20, bottom: 5, left: 0 }}>
-                  <XAxis dataKey="status" tickLine={false} axisLine={false} tickMargin={8} fontSize={12} />
-                  <YAxis tickLine={false} axisLine={false} tickMargin={8} fontSize={12} allowDecimals={false} />
-                  <ChartTooltip
-                    cursor={false}
-                    content={<ChartTooltipContent indicator="dot" />}
-                  />
-                  <Bar dataKey="count" radius={4} />
-                </BarChart>
-              </ResponsiveContainer>
+               {!isClient ? <Skeleton className="h-full w-full" /> : (
+                  <ResponsiveContainer>
+                    <BarChart data={chartData} margin={{ top: 20, right: 20, bottom: 5, left: 0 }}>
+                      <XAxis dataKey="status" tickLine={false} axisLine={false} tickMargin={8} fontSize={12} />
+                      <YAxis tickLine={false} axisLine={false} tickMargin={8} fontSize={12} allowDecimals={false} />
+                      <ChartTooltip
+                        cursor={false}
+                        content={<ChartTooltipContent indicator="dot" />}
+                      />
+                      <Bar dataKey="count" radius={4} />
+                    </BarChart>
+                  </ResponsiveContainer>
+               )}
             </ChartContainer>
           </CardContent>
         </Card>
