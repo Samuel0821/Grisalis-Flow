@@ -32,9 +32,8 @@ service cloud.firestore {
       // Allow users to read their own profile. Admins can read any.
       allow get: if isOwner(userId) || isAdmin();
       
-      // Allow authenticated users to list other users (for adding to projects). Admins can also list.
-      // Allow an unauthenticated query for the sole purpose of checking if an admin user exists.
-      allow list: if isSignedIn() || (request.query.limit == 1 && request.query.offset == null);
+      // Allow an authenticated user to list other users (for adding to projects). Admins can also list.
+      allow list: if isSignedIn();
       
       // Allow a user to create their own profile upon sign-up with 'member' role,
       // OR allow the initial admin user to be created.
@@ -117,7 +116,7 @@ service cloud.firestore {
         // GET: A user can get their own notification, or an admin can get any.
         allow get: if isOwner(resource.data.userId) || isAdmin();
         // LIST: A user can list ONLY their own notifications. Admins can list all.
-        allow list: if (request.auth.uid == request.query.where.userId) || isAdmin();
+        allow list: if (request.query.where.userId == request.auth.uid) || isAdmin();
         // WRITE: Only the system can create notifications. Users can update their own to mark as read.
         allow create: if false;
         allow update: if isOwner(get(/databases/$(database)/documents/notifications/$(notificationId)).data.userId) || isAdmin();

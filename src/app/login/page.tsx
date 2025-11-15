@@ -19,7 +19,7 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
 import { Loader2, AlertTriangle, UserPlus } from 'lucide-react';
-import { createAuditLog, doesAdminExist } from '@/lib/firebase/firestore';
+import { createAuditLog } from '@/lib/firebase/firestore';
 import { doc, setDoc, serverTimestamp, getFirestore, writeBatch, collection } from 'firebase/firestore';
 
 
@@ -31,31 +31,8 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [isSeeding, setIsSeeding] = useState(false);
   
-  const [isSetupNeeded, setIsSetupNeeded] = useState(false);
-  const [isCheckingSetup, setIsCheckingSetup] = useState(true);
-
-
-  useEffect(() => {
-    const checkAdmin = async () => {
-      setIsCheckingSetup(true);
-      try {
-        const adminExists = await doesAdminExist();
-        setIsSetupNeeded(!adminExists);
-      } catch (error) {
-        console.error("Error checking for admin user:", error);
-        // Fallback: If we can't check, assume setup is not needed to prevent locking out.
-        setIsSetupNeeded(false); 
-        toast({
-          variant: 'destructive',
-          title: 'Error de Verificación',
-          description: 'No se pudo verificar la configuración del administrador. Por favor, contacta a soporte.'
-        })
-      } finally {
-        setIsCheckingSetup(false);
-      }
-    };
-    checkAdmin();
-  }, [toast]);
+  const [isSetupNeeded, setIsSetupNeeded] = useState(true);
+  const [isCheckingSetup, setIsCheckingSetup] = useState(false);
 
 
   const handleSignIn = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -116,6 +93,7 @@ export default function LoginPage() {
 
         const userProfileRef = doc(db, 'userProfiles', user.uid);
         const userProfileData = {
+            id: user.uid,
             email: user.email!,
             displayName: 'Admin Grisalis',
             role: 'admin',

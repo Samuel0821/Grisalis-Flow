@@ -166,19 +166,6 @@ export interface ProjectMember extends DocumentData {
 
 // ---- User Profile Functions ----
 
-export const doesAdminExist = async (): Promise<boolean> => {
-    try {
-        const q = query(collection(db, 'userProfiles'), where('role', '==', 'admin'), limit(1));
-        const querySnapshot = await getDocs(q);
-        return !querySnapshot.empty;
-    } catch (error) {
-        console.error("Error checking if admin exists:", error);
-        // This might fail if rules prevent unauthenticated access.
-        // We throw to let the caller handle it.
-        throw new Error('Could not check for admin existence.');
-    }
-}
-
 export const getAllUsers = async (): Promise<UserProfile[]> => {
     try {
         const usersRef = collection(db, 'userProfiles');
