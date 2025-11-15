@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -50,7 +51,7 @@ import { Badge } from '@/components/ui/badge';
 import { UserProfile, deleteUserProfile, updateUserProfile } from '@/lib/firebase/firestore';
 import { createUserWithEmailAndPassword } from '@/lib/firebase/auth';
 import { useAuth } from '@/hooks/use-auth';
-import { Loader2, PlusCircle, MoreHorizontal, Edit, Trash2, RefreshCw } from 'lucide-react';
+import { Loader2, PlusCircle, MoreHorizontal, Edit, Trash2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -66,6 +67,7 @@ export function UserManagement({
 }: {
   initialUsers: UserProfile[];
   onUserCreated: (user: UserProfile) => void;
+  onUsersReset: () => void;
 }) {
   const { user: adminUser } = useAuth();
   const { toast } = useToast();
@@ -101,23 +103,24 @@ export function UserManagement({
         onUserCreated(newUserProfile);
         toast({
             title: "Usuario Creado",
-            description: `Se ha creado a ${newDisplayName}. La página se recargará para restaurar tu sesión.`,
+            description: `Se ha creado a ${newDisplayName}. La página se recargará para restaurar tu sesión de administrador.`,
         });
         resetCreateForm();
         setIsCreateDialogOpen(false);
-        // Reload to restore admin session
+        // Reload to restore admin session and avoid being logged out
         setTimeout(() => window.location.reload(), 2000);
     } catch (error: any) {
          if (error.code === 'auth/email-already-in-use') {
             toast({
                 variant: 'destructive',
                 title: 'El correo ya existe',
-                description: 'Este correo ya está registrado en la autenticación. Se creará/actualizará su perfil en la base de datos.',
+                description: 'Este correo ya está registrado. Se intentará crear o actualizar su perfil en la base de datos.',
             });
-            // Still try to create the profile
-             const newUserProfile = await createUserWithEmailAndPassword(newEmail, newPassword, newDisplayName);
-             onUserCreated(newUserProfile);
-             setIsCreateDialogOpen(false);
+            // Try to create the profile anyway
+            const newUserProfile = await createUserWithEmailAndPassword(newEmail, newPassword, newDisplayName);
+            onUserCreated(newUserProfile);
+            setIsCreateDialogOpen(false);
+            setTimeout(() => window.location.reload(), 2000);
         } else {
             toast({
                 variant: 'destructive',
@@ -129,7 +132,6 @@ export function UserManagement({
         setIsSubmitting(false);
     }
   }
-
 
   // Edit form state
   const [editDisplayName, setEditDisplayName] = useState('');
@@ -349,6 +351,17 @@ export function UserManagement({
                   disabled={isSubmitting}
                 />
               </div>
+               <div className="space-y-2">
+                <Label htmlFor="edit-email">Email (solo lectura)</Label>
+                <Input
+                  id="edit-email"
+                  type="email"
+                  value={userToEdit?.email || ''}
+                  readOnly
+                  disabled
+                  className="bg-muted"
+                />
+              </div>
               <div className="space-y-2">
                 <Label htmlFor="edit-role">Rol</Label>
                 <Select onValueChange={(v) => setEditRole(v as 'admin' | 'member')} value={editRole} disabled={isSubmitting}>
@@ -381,3 +394,4 @@ export function UserManagement({
     </div>
   );
 }
+
