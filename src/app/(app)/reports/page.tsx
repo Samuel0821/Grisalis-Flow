@@ -22,12 +22,11 @@ export default function ReportsPage() {
       const fetchData = async () => {
         setIsLoading(true);
         try {
-          // Fetch all data needed for the report generator
           const [projectData, taskData, timeLogData, userData] = await Promise.all([
-            getProjects(),
-            getTasksForProjects([]), // Fetch all tasks for lookups
-            getTimeLogs(), // Fetch all time logs for reporting
-            getAllUsers(), // Fetch all users for filtering
+            getProjects(user.uid),
+            getTasksForProjects([]),
+            getTimeLogs(),
+            getAllUsers(),
           ]);
           setProjects(projectData);
           setTasks(taskData);
@@ -37,8 +36,8 @@ export default function ReportsPage() {
           console.error('Error fetching data:', error);
           toast({
             variant: 'destructive',
-            title: 'Error loading data',
-            description: 'Could not load data for reports.',
+            title: 'Error al cargar datos',
+            description: 'No se pudieron cargar los datos para los informes.',
           });
         } finally {
           setIsLoading(false);
@@ -51,8 +50,8 @@ export default function ReportsPage() {
   return (
     <div className="flex flex-col gap-8">
       <div className="flex flex-col gap-2">
-        <h1 className="font-headline text-3xl font-bold tracking-tight">Reports</h1>
-        <p className="text-muted-foreground">Generate and view reports for your projects.</p>
+        <h1 className="font-headline text-3xl font-bold tracking-tight">Informes</h1>
+        <p className="text-muted-foreground">Genera y visualiza informes para tus proyectos.</p>
       </div>
 
       {isLoading ? (

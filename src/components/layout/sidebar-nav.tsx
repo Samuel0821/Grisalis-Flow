@@ -27,14 +27,14 @@ import {
 import { Separator } from '@/components/ui/separator';
 
 const navItems = [
-  { href: '/dashboard', icon: LayoutGrid, label: 'Dashboard' },
-  { href: '/projects', icon: Briefcase, label: 'Projects' },
+  { href: '/dashboard', icon: LayoutGrid, label: 'Panel' },
+  { href: '/projects', icon: Briefcase, label: 'Proyectos' },
   { href: '/bugs', icon: Bug, label: 'Bugs' },
-  { href: '/timesheet', icon: Clock, label: 'Timesheet' },
-  { href: '/reports', icon: BarChart, label: 'Reports' },
+  { href: '/timesheet', icon: Clock, label: 'Horas' },
+  { href: '/reports', icon: BarChart, label: 'Informes' },
   { href: '/wiki', icon: BookText, label: 'Wiki' },
-  { href: '/summarizer', icon: Sparkles, label: 'AI Summarizer' },
-  { href: '/audit', icon: ShieldCheck, label: 'Audit Log' },
+  { href: '/summarizer', icon: Sparkles, label: 'Resumidor IA' },
+  { href: '/audit', icon: ShieldCheck, label: 'Auditoría' },
 ];
 
 export function SidebarNav() {
@@ -74,10 +74,10 @@ export function SidebarNav() {
             <Link href="/settings">
               <SidebarMenuButton
                 isActive={pathname === '/settings'}
-                tooltip={{ children: 'Settings', side: 'right' }}
+                tooltip={{ children: 'Configuración', side: 'right' }}
               >
                 <Settings />
-                <span>Settings</span>
+                <span>Configuración</span>
               </SidebarMenuButton>
             </Link>
           </SidebarMenuItem>

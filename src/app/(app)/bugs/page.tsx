@@ -22,7 +22,7 @@ export default function BugsPage() {
         try {
           const [bugData, projectData] = await Promise.all([
             getBugs(),
-            getProjects(), // Fetches all projects for bug association
+            getProjects(user.uid),
           ]);
           setBugs(bugData);
           setProjects(projectData);
@@ -30,8 +30,8 @@ export default function BugsPage() {
           console.error('Error fetching data:', error);
           toast({
             variant: 'destructive',
-            title: 'Error loading data',
-            description: 'Could not load bugs or projects.',
+            title: 'Error al cargar datos',
+            description: 'No se pudieron cargar los bugs o proyectos.',
           });
         } finally {
           setIsLoading(false);
@@ -42,14 +42,14 @@ export default function BugsPage() {
   }, [user, toast]);
 
   const handleBugCreated = (newBug: Bug) => {
-    setBugs((prevBugs) => [newBug, ...prevBugs].sort((a, b) => b.createdAt.toDate() - a.createdAt.toDate()));
+    setBugs((prevBugs) => [newBug, ...prevBugs].sort((a, b) => b.createdAt.toDate().getTime() - a.createdAt.toDate().getTime()));
   };
 
   return (
     <div className="flex flex-col gap-8">
       <div className="flex flex-col gap-2">
-        <h1 className="font-headline text-3xl font-bold tracking-tight">Bug Tracker</h1>
-        <p className="text-muted-foreground">Monitor, track, and resolve bugs efficiently.</p>
+        <h1 className="font-headline text-3xl font-bold tracking-tight">Seguimiento de Bugs</h1>
+        <p className="text-muted-foreground">Monitorea, rastrea y resuelve bugs de manera eficiente.</p>
       </div>
 
       {isLoading ? (

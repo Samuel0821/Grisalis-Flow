@@ -1,3 +1,4 @@
+
 'use client';
 import { useState } from 'react';
 import {
@@ -35,10 +36,10 @@ export function SummarizerForm() {
       setResult(summary);
     } catch (e) {
       const errorMessage =
-        e instanceof Error ? e.message : 'An unknown error occurred.';
+        e instanceof Error ? e.message : 'Ocurrió un error desconocido.';
       toast({
         variant: 'destructive',
-        title: 'Summarization Failed',
+        title: 'Falló la Sumarización',
         description: errorMessage,
       });
     } finally {
@@ -51,20 +52,20 @@ export function SummarizerForm() {
       <Card className="shadow-lg">
         <form onSubmit={handleSubmit}>
           <CardHeader>
-            <CardTitle>Smart Summarizer</CardTitle>
+            <CardTitle>Resumidor Inteligente</CardTitle>
             <CardDescription>
-              Paste your documentation or project brief below to get a concise
-              summary.
+              Pega tu documentación o brief de proyecto a continuación para obtener un
+              resumen conciso.
             </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="grid w-full gap-2">
               <Label htmlFor="text-input" className="sr-only">
-                Your Text
+                Tu Texto
               </Label>
               <Textarea
                 id="text-input"
-                placeholder="Paste your text here..."
+                placeholder="Pega tu texto aquí..."
                 className="min-h-[300px] text-base font-code"
                 value={text}
                 onChange={(e) => setText(e.target.value)}
@@ -78,12 +79,12 @@ export function SummarizerForm() {
               {isLoading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Summarizing...
+                  Resumiendo...
                 </>
               ) : (
                 <>
                   <Sparkles className="mr-2 h-4 w-4" />
-                  Summarize
+                  Resumir
                 </>
               )}
             </Button>
@@ -93,9 +94,9 @@ export function SummarizerForm() {
 
       <Card className="shadow-lg flex flex-col">
         <CardHeader>
-          <CardTitle>Generated Summary</CardTitle>
+          <CardTitle>Resumen Generado</CardTitle>
           <CardDescription>
-            The AI-powered summary will appear below.
+            El resumen generado por IA aparecerá a continuación.
           </CardDescription>
         </CardHeader>
         <CardContent className="flex-grow">
@@ -111,7 +112,7 @@ export function SummarizerForm() {
           )}
           {!isLoading && !result && (
             <div className="flex h-full items-center justify-center rounded-lg border border-dashed text-center text-muted-foreground">
-              <p>Your summary is waiting to be generated.</p>
+              <p>Tu resumen está esperando ser generado.</p>
             </div>
           )}
         </CardContent>

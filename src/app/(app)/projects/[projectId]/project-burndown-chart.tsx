@@ -1,15 +1,22 @@
 
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { TrendingDown } from 'lucide-react';
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
 import { Area, ComposedChart, Line, ResponsiveContainer, XAxis, YAxis } from 'recharts';
 import { differenceInDays, format, isAfter } from 'date-fns';
 import { Sprint, Task } from '@/lib/firebase/firestore';
+import { Skeleton } from '@/components/ui/skeleton';
 
 export function BurndownChart({ tasks, sprint }: { tasks: Task[]; sprint: Sprint | undefined }) {
+  const [isClient, setIsClient] = useState(false);
+
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
+
   const chartData = useMemo(() => {
     if (!sprint || sprint.status !== 'active') return [];
 
@@ -22,7 +29,7 @@ export function BurndownChart({ tasks, sprint }: { tasks: Task[]; sprint: Sprint
     if (totalTaskCount === 0) return [];
 
     const data = [];
-    const tasksPerDayIdeal = totalTaskCount / (totalDays || 1);
+    const tasksPerDayIdeal = totalDays > 0 ? totalTaskCount / totalDays : totalTaskCount;
 
     for (let i = 0; i <= totalDays; i++) {
       const currentDate = new Date(startDate);
@@ -30,10 +37,8 @@ export function BurndownChart({ tasks, sprint }: { tasks: Task[]; sprint: Sprint
       
       const idealRemaining = Math.max(0, totalTaskCount - (tasksPerDayIdeal * i));
 
-      // Calculate actual remaining tasks
       const remainingTasks = sprintTasks.filter(task => {
         const taskCompletedAt = task.updatedAt?.toDate();
-        // A task is remaining if it's not 'done' OR if it was completed after the current day in the loop
         return task.status !== 'done' || (taskCompletedAt && isAfter(taskCompletedAt, currentDate));
       }).length;
 
@@ -47,15 +52,19 @@ export function BurndownChart({ tasks, sprint }: { tasks: Task[]; sprint: Sprint
     return data;
   }, [sprint, tasks]);
 
+  if (!isClient) {
+    return <Skeleton className="md:col-span-2 h-[350px]" />;
+  }
+
   if (!sprint || sprint.status !== 'active') {
     return (
       <Card className='md:col-span-2'>
         <CardHeader>
-            <CardTitle className="flex items-center gap-2"><TrendingDown /> Active Sprint Burndown</CardTitle>
-            <CardDescription>Progress of the currently active sprint.</CardDescription>
+            <CardTitle className="flex items-center gap-2"><TrendingDown /> Burndown del Sprint Activo</CardTitle>
+            <CardDescription>Progreso del sprint activo actualmente.</CardDescription>
         </CardHeader>
         <CardContent className="flex items-center justify-center h-[250px] text-muted-foreground">
-            No active sprint to display.
+            No hay ningún sprint activo para mostrar.
         </CardContent>
       </Card>
     );
@@ -66,7 +75,7 @@ export function BurndownChart({ tasks, sprint }: { tasks: Task[]; sprint: Sprint
       <CardHeader>
         <CardTitle className="flex items-center gap-2"><TrendingDown /> {sprint.name} - Burndown</CardTitle>
         <CardDescription>
-          Ideal vs. actual progress for the active sprint.
+          Progreso ideal vs. real para el sprint activo.
         </CardDescription>
       </CardHeader>
       <CardContent>

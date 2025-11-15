@@ -38,12 +38,12 @@ export default function EditWikiPage() {
           setTitle(pageData.title);
           setContent(pageData.content);
         } else {
-          toast({ variant: 'destructive', title: 'Error', description: 'Wiki page not found.' });
+          toast({ variant: 'destructive', title: 'Error', description: 'Página de wiki no encontrada.' });
           router.push('/wiki');
         }
       } catch (error) {
         console.error('Error fetching wiki page:', error);
-        toast({ variant: 'destructive', title: 'Error', description: 'Could not load page data.' });
+        toast({ variant: 'destructive', title: 'Error', description: 'No se pudieron cargar los datos de la página.' });
       } finally {
         setIsLoading(false);
       }
@@ -54,25 +54,25 @@ export default function EditWikiPage() {
   const handleUpdatePage = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user || !page) {
-      toast({ variant: 'destructive', title: 'Authentication or page data missing' });
+      toast({ variant: 'destructive', title: 'Faltan datos de autenticación o de página' });
       return;
     }
     if (!title.trim() || !content.trim()) {
-      toast({ variant: 'destructive', title: 'Title and content are required' });
+      toast({ variant: 'destructive', title: 'Título y contenido son requeridos' });
       return;
     }
 
     setIsSubmitting(true);
     try {
       const updatedPage = await updateWikiPage(page.id, { title, content }, { uid: user.uid, displayName: user.displayName });
-      toast({ title: 'Success!', description: 'Wiki page updated.' });
+      toast({ title: '¡Éxito!', description: 'Página de wiki actualizada.' });
       router.push(`/wiki/${updatedPage.slug}`);
     } catch (error) {
       console.error('Error updating wiki page:', error);
       toast({
         variant: 'destructive',
-        title: 'Error updating page',
-        description: 'Could not save the changes. Please try again.',
+        title: 'Error al actualizar la página',
+        description: 'No se pudieron guardar los cambios. Por favor, inténtalo de nuevo.',
       });
     } finally {
       setIsSubmitting(false);
@@ -84,25 +84,25 @@ export default function EditWikiPage() {
   }
 
   if (!page) {
-    return <div className="text-center text-muted-foreground">Page not found.</div>
+    return <div className="text-center text-muted-foreground">Página no encontrada.</div>
   }
 
   return (
     <div className="flex flex-col gap-8">
       <div className="flex flex-col gap-2">
-        <h1 className="font-headline text-3xl font-bold tracking-tight">Edit Wiki Article</h1>
-        <p className="text-muted-foreground">Modify the content of the article.</p>
+        <h1 className="font-headline text-3xl font-bold tracking-tight">Editar Artículo de Wiki</h1>
+        <p className="text-muted-foreground">Modifica el contenido del artículo.</p>
       </div>
 
       <form onSubmit={handleUpdatePage}>
         <Card>
           <CardHeader>
-            <CardTitle>Article Editor</CardTitle>
-            <CardDescription>Use markdown for formatting. Your previous version will be saved in history.</CardDescription>
+            <CardTitle>Editor de Artículo</CardTitle>
+            <CardDescription>Usa markdown para el formato. Tu versión anterior se guardará en el historial.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="title">Title</Label>
+              <Label htmlFor="title">Título</Label>
               <Input
                 id="title"
                 value={title}
@@ -112,7 +112,7 @@ export default function EditWikiPage() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="content">Content</Label>
+              <Label htmlFor="content">Contenido</Label>
               <Textarea
                 id="content"
                 value={content}
@@ -126,18 +126,18 @@ export default function EditWikiPage() {
           </CardContent>
           <CardFooter className="flex justify-between">
             <Button variant="outline" asChild>
-              <Link href={`/wiki/${page.slug}`}>Cancel</Link>
+              <Link href={`/wiki/${page.slug}`}>Cancelar</Link>
             </Button>
             <Button type="submit" disabled={isSubmitting || !title.trim() || !content.trim()}>
               {isSubmitting ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Saving...
+                  Guardando...
                 </>
               ) : (
                 <>
                   <Save className="mr-2 h-4 w-4" />
-                  Save Changes
+                  Guardar Cambios
                 </>
               )}
             </Button>

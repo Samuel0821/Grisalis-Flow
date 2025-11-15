@@ -26,6 +26,7 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { Notification, getNotifications, markNotificationAsRead, markAllNotificationsAsRead } from '@/lib/firebase/firestore';
 import { formatDistanceToNow } from 'date-fns';
+import { es } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '../ui/scroll-area';
 
@@ -69,13 +70,13 @@ function NotificationPanel() {
       </PopoverTrigger>
       <PopoverContent align="end" className="w-96 p-0">
         <div className="flex items-center justify-between p-4 font-medium border-b">
-          <h4>Notifications</h4>
-          {hasUnread && <Button variant="link" size="sm" onClick={handleMarkAllAsRead}>Mark all as read</Button>}
+          <h4>Notificaciones</h4>
+          {hasUnread && <Button variant="link" size="sm" onClick={handleMarkAllAsRead}>Marcar todas como leídas</Button>}
         </div>
         <ScrollArea className="h-80">
           {notifications.length === 0 ? (
              <div className="p-4 text-sm text-center text-muted-foreground">
-                You have no new notifications.
+                No tienes notificaciones nuevas.
              </div>
           ) : (
              <div className="divide-y">
@@ -89,11 +90,11 @@ function NotificationPanel() {
                          <div className="flex-1">
                             <p className="text-sm">{n.message}</p>
                              <p className="text-xs text-muted-foreground mt-1">
-                               {n.createdAt && formatDistanceToNow(n.createdAt.toDate(), { addSuffix: true })}
+                               {n.createdAt && formatDistanceToNow(n.createdAt.toDate(), { addSuffix: true, locale: es })}
                             </p>
                          </div>
                          {!n.read && (
-                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={(e) => handleMarkAsRead(n.id, e)} title="Mark as read">
+                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={(e) => handleMarkAsRead(n.id, e)} title="Marcar como leída">
                                <Mail className="h-4 w-4"/>
                             </Button>
                          )}
@@ -105,7 +106,7 @@ function NotificationPanel() {
           )}
         </ScrollArea>
         <div className="p-2 border-t text-center">
-            <Button variant="link" size="sm" disabled>View all notifications</Button>
+            <Button variant="link" size="sm" disabled>Ver todas las notificaciones</Button>
         </div>
       </PopoverContent>
     </Popover>
@@ -132,7 +133,7 @@ export function Header() {
         <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
         <Input
           type="search"
-          placeholder="Search..."
+          placeholder="Buscar..."
           className="w-full rounded-lg bg-secondary pl-8 md:w-[200px] lg:w-[320px]"
         />
       </div>
@@ -143,7 +144,7 @@ export function Header() {
             <Avatar>
               <AvatarImage
                 src={user?.photoURL || userAvatar?.imageUrl}
-                alt="User avatar"
+                alt="Avatar de usuario"
                 data-ai-hint={userAvatar?.imageHint}
               />
               <AvatarFallback>{user?.email?.charAt(0).toUpperCase() || 'U'}</AvatarFallback>

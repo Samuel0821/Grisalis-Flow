@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import dynamic from 'next/dynamic';
 import { Project, Task, ProjectMember, TaskStatus, Sprint } from '@/lib/firebase/firestore';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -17,17 +17,15 @@ import {
 } from '@/components/ui/table';
 import { Skeleton } from '@/components/ui/skeleton';
 
-// Dynamic imports for charts
 const BurndownChart = dynamic(() => import('./project-burndown-chart').then(mod => mod.BurndownChart), {
   ssr: false,
-  loading: () => <Skeleton className="h-[300px] w-full" />,
+  loading: () => <Skeleton className="md:col-span-2 h-[350px]" />,
 });
 
 const TasksByStatusChart = dynamic(() => import('./tasks-by-status-chart').then(mod => mod.TasksByStatusChart), {
   ssr: false,
-  loading: () => <Skeleton className="h-[300px] w-full" />,
+  loading: () => <Skeleton className="h-[350px] w-full" />,
 });
-
 
 interface DashboardCardProps {
   title: string;
@@ -61,6 +59,10 @@ export function ProjectDashboard({
   members: ProjectMember[];
   sprints: Sprint[];
 }) {
+  const [isClient, setIsClient] = useState(false);
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
 
   const taskStatusCounts = useMemo(() => {
     const counts: Record<TaskStatus, number> = {
@@ -88,38 +90,38 @@ export function ProjectDashboard({
   return (
     <div className="space-y-6">
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <DashboardCard title="Total Tasks" value={totalTasks} icon={<ListTodo className="h-4 w-4 text-muted-foreground" />} />
-        <DashboardCard title="Project Members" value={members.length} icon={<Users className="h-4 w-4 text-muted-foreground" />} />
-        <DashboardCard title="Open Bugs" value="0" icon={<Bug className="h-4 w-4 text-muted-foreground" />} />
-        <DashboardCard title="Completion" value={`${completionPercentage}%`} icon={<CheckCircle className="h-4 w-4 text-muted-foreground" />} />
+        <DashboardCard title="Total de Tareas" value={totalTasks} icon={<ListTodo className="h-4 w-4 text-muted-foreground" />} />
+        <DashboardCard title="Miembros del Proyecto" value={members.length} icon={<Users className="h-4 w-4 text-muted-foreground" />} />
+        <DashboardCard title="Bugs Abiertos" value="0" icon={<Bug className="h-4 w-4 text-muted-foreground" />} />
+        <DashboardCard title="Completado" value={`${completionPercentage}%`} icon={<CheckCircle className="h-4 w-4 text-muted-foreground" />} />
       </div>
 
       <div className="grid gap-6 md:grid-cols-2">
-         <BurndownChart tasks={tasks} sprint={activeSprint} />
+        {isClient && <BurndownChart tasks={tasks} sprint={activeSprint} />}
       </div>
 
       <div className="grid gap-6 md:grid-cols-2">
         <Card>
           <CardHeader>
-            <CardTitle>Tasks by Status</CardTitle>
-            <CardDescription>A breakdown of tasks in each stage of the workflow.</CardDescription>
+            <CardTitle>Tareas por Estado</CardTitle>
+            <CardDescription>Un desglose de las tareas en cada etapa del flujo de trabajo.</CardDescription>
           </CardHeader>
           <CardContent>
-             <TasksByStatusChart taskStatusCounts={taskStatusCounts} />
+             {isClient && <TasksByStatusChart taskStatusCounts={taskStatusCounts} />}
           </CardContent>
         </Card>
         
         <Card>
             <CardHeader>
-                <CardTitle>Project Members</CardTitle>
-                <CardDescription>Users who have access to this project.</CardDescription>
+                <CardTitle>Miembros del Proyecto</CardTitle>
+                <CardDescription>Usuarios que tienen acceso a este proyecto.</CardDescription>
             </CardHeader>
             <CardContent>
                  <Table>
                     <TableHeader>
                         <TableRow>
-                        <TableHead>Member</TableHead>
-                        <TableHead>Role</TableHead>
+                        <TableHead>Miembro</TableHead>
+                        <TableHead>Rol</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>

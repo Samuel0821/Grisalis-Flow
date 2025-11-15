@@ -1,5 +1,4 @@
 
-
 import {
   getFirestore,
   collection,
@@ -36,7 +35,6 @@ export interface UserProfile {
 }
 
 
-// Tipos de datos
 export interface Project extends DocumentData {
   id?: string;
   name: string;
@@ -127,10 +125,10 @@ export type NotificationType = 'task_assigned' | 'status_changed' | 'bug_critica
 
 export interface Notification extends DocumentData {
     id: string;
-    userId: string; // The user who receives the notification
+    userId: string;
     type: NotificationType;
     message: string;
-    link: string; // e.g., /projects/pid/tasks/tid
+    link: string;
     read: boolean;
     createdAt: Timestamp;
 }
@@ -164,8 +162,6 @@ export interface ProjectMember extends DocumentData {
 }
 
 
-// ---- User Profile Functions ----
-
 export const getAllUsers = async (): Promise<UserProfile[]> => {
     try {
         const usersRef = collection(db, 'userProfiles');
@@ -176,8 +172,8 @@ export const getAllUsers = async (): Promise<UserProfile[]> => {
         });
         return users;
     } catch (error) {
-        console.error("Error getting all users:", error);
-        throw new Error('Could not get all users.');
+        console.error("Error al obtener todos los usuarios:", error);
+        throw new Error('No se pudieron obtener todos los usuarios.');
     }
 }
 
@@ -191,12 +187,11 @@ export const getUserProfile = async (userId: string): Promise<UserProfile | null
         }
         return null;
     } catch (error) {
-        console.error("Error getting user profile:", error);
-        throw new Error('Could not get user profile.');
+        console.error("Error al obtener el perfil de usuario:", error);
+        throw new Error('No se pudo obtener el perfil de usuario.');
     }
 }
 
-// ---- Funciones de Auditoría ----
 export const createAuditLog = async (logData: Omit<AuditLog, 'id' | 'timestamp'>) => {
     try {
         await addDoc(collection(db, 'auditLogs'), {
@@ -204,9 +199,7 @@ export const createAuditLog = async (logData: Omit<AuditLog, 'id' | 'timestamp'>
             timestamp: serverTimestamp(),
         });
     } catch (error) {
-        console.error("Error creating audit log:", error);
-        // Fail silently so we don't block user actions, but log it.
-        // Avoid throwing an error here as it might disrupt user-facing flows.
+        console.error("Error al crear el registro de auditoría:", error);
     }
 };
 
@@ -220,17 +213,12 @@ export const getAuditLogs = async (): Promise<AuditLog[]> => {
         });
         return logs;
     } catch (error) {
-        console.error('Error getting audit logs:', error);
-        throw new Error('Could not get audit logs.');
+        console.error('Error al obtener los registros de auditoría:', error);
+        throw new Error('No se pudieron obtener los registros de auditoría.');
     }
 }
 
 
-// ---- Funciones para Proyectos ----
-
-/**
- * Crea un nuevo proyecto en Firestore y asigna al creador como 'owner'.
- */
 export const createProject = async (
   projectData: Omit<Project, 'id' | 'createdAt' | 'updatedAt'>,
   user: { uid: string, displayName: string | null, email: string | null }
@@ -250,7 +238,7 @@ export const createProject = async (
       userId: user.uid,
       projectId: projectRef.id,
       role: 'owner',
-      displayName: user.displayName || 'Owner',
+      displayName: user.displayName || 'Propietario',
       email: user.email || 'N/A'
   });
   
@@ -258,8 +246,8 @@ export const createProject = async (
 
   await createAuditLog({
       userId: user.uid,
-      userName: user.displayName || 'Anonymous',
-      action: `Created project "${projectData.name}"`,
+      userName: user.displayName || 'Anónimo',
+      action: `Creó el proyecto "${projectData.name}"`,
       entity: 'project',
       entityId: projectRef.id,
       details: projectData
@@ -268,9 +256,6 @@ export const createProject = async (
   return { id: projectRef.id, ...projectData, createdAt: new Date(), updatedAt: new Date(), status: 'active' };
 };
 
-/**
- * Obtiene los proyectos en los que un usuario es miembro, o todos si es admin.
- */
 export const getProjects = async (userId?: string): Promise<Project[]> => {
   try {
     if (userId) {
@@ -310,15 +295,12 @@ export const getProjects = async (userId?: string): Promise<Project[]> => {
     return projects.sort((a,b) => b.createdAt.toDate().getTime() - a.createdAt.toDate().getTime());
 
   } catch (error) {
-    console.error('Error getting projects: ', error);
-    throw new Error('Could not get projects.');
+    console.error('Error al obtener proyectos: ', error);
+    throw new Error('No se pudieron obtener los proyectos.');
   }
 };
 
 
-/**
- * Obtiene un único proyecto por su ID.
- */
 export const getProject = async (projectId: string): Promise<Project | null> => {
     try {
         const docRef = doc(db, 'projects', projectId);
@@ -327,18 +309,15 @@ export const getProject = async (projectId: string): Promise<Project | null> => 
         if (docSnap.exists()) {
             return { id: docSnap.id, ...docSnap.data() } as Project;
         } else {
-            console.warn(`Project with ID ${projectId} not found.`);
+            console.warn(`Proyecto con ID ${projectId} no encontrado.`);
             return null;
         }
     } catch (error) {
-        console.error("Error getting project:", error);
-        throw new Error("Could not get the project.");
+        console.error("Error al obtener el proyecto:", error);
+        throw new Error("No se pudo obtener el proyecto.");
     }
 };
 
-/**
- * Actualiza un proyecto en Firestore.
- */
 export const updateProject = async (
   projectId: string,
   projectData: Partial<Project>,
@@ -353,21 +332,18 @@ export const updateProject = async (
 
     await createAuditLog({
         userId: user.uid,
-        userName: user.displayName || 'Anonymous',
-        action: `Updated project "${projectData.name}"`,
+        userName: user.displayName || 'Anónimo',
+        action: `Actualizó el proyecto "${projectData.name}"`,
         entity: 'project',
         entityId: projectId,
         details: projectData
     });
   } catch (error) {
-    console.error('Error updating project: ', error);
-    throw new Error('Could not update the project.');
+    console.error('Error al actualizar el proyecto: ', error);
+    throw new Error('No se pudo actualizar el proyecto.');
   }
 };
 
-/**
- * Elimina un proyecto y todas sus subcolecciones asociadas.
- */
 export const deleteProject = async (projectId: string, projectName: string, user: { uid: string, displayName: string | null }): Promise<void> => {
   try {
     const batch = writeBatch(db);
@@ -403,20 +379,19 @@ export const deleteProject = async (projectId: string, projectName: string, user
 
     await createAuditLog({
         userId: user.uid,
-        userName: user.displayName || 'Anonymous',
-        action: `Deleted project "${projectName}"`,
+        userName: user.displayName || 'Anónimo',
+        action: `Eliminó el proyecto "${projectName}"`,
         entity: 'project',
         entityId: projectId,
         details: { name: projectName }
     });
 
   } catch (error) {
-    console.error('Error deleting project and associated data: ', error);
-    throw new Error('Could not delete the project.');
+    console.error('Error al eliminar el proyecto y sus datos asociados: ', error);
+    throw new Error('No se pudo eliminar el proyecto.');
   }
 };
 
-// ---- Funciones para Miembros del Proyecto ----
 export const getProjectMembers = async (projectId: string): Promise<ProjectMember[]> => {
     try {
         const membersRef = collection(db, 'projects', projectId, 'members');
@@ -427,8 +402,8 @@ export const getProjectMembers = async (projectId: string): Promise<ProjectMembe
         });
         return members;
     } catch (error) {
-        console.error('Error getting project members: ', error);
-        throw new Error('Could not get project members.');
+        console.error('Error al obtener los miembros del proyecto: ', error);
+        throw new Error('No se pudieron obtener los miembros del proyecto.');
     }
 }
 
@@ -439,15 +414,15 @@ export const addProjectMember = async (projectId: string, memberData: Omit<Proje
 
         await createAuditLog({
             userId: user.uid,
-            userName: user.displayName || 'Anonymous',
-            action: `Added member ${memberData.displayName} to project`,
+            userName: user.displayName || 'Anónimo',
+            action: `Añadió al miembro ${memberData.displayName} al proyecto`,
             entity: 'project',
             entityId: projectId,
             details: { memberId: memberData.userId, role: memberData.role }
         });
     } catch (error) {
-        console.error('Error adding project member: ', error);
-        throw new Error('Could not add project member.');
+        console.error('Error al añadir miembro al proyecto: ', error);
+        throw new Error('No se pudo añadir el miembro al proyecto.');
     }
 }
 
@@ -458,24 +433,19 @@ export const removeProjectMember = async (projectId: string, userId: string, mem
 
         await createAuditLog({
             userId: user.uid,
-            userName: user.displayName || 'Anonymous',
-            action: `Removed member ${memberName} from project`,
+            userName: user.displayName || 'Anónimo',
+            action: `Eliminó al miembro ${memberName} del proyecto`,
             entity: 'project',
             entityId: projectId,
             details: { memberId: userId }
         });
     } catch (error) {
-        console.error('Error removing project member: ', error);
-        throw new Error('Could not remove project member.');
+        console.error('Error al eliminar miembro del proyecto: ', error);
+        throw new Error('No se pudo eliminar el miembro del proyecto.');
     }
 }
 
 
-// ---- Funciones para Tareas ----
-
-/**
- * Obtiene una única tarea por su ID.
- */
 export const getTask = async (taskId: string): Promise<Task | null> => {
     try {
         const docRef = doc(db, 'tasks', taskId);
@@ -487,14 +457,11 @@ export const getTask = async (taskId: string): Promise<Task | null> => {
             return null;
         }
     } catch (error) {
-        console.error("Error getting task:", error);
-        throw new Error("Could not get the task.");
+        console.error("Error al obtener la tarea:", error);
+        throw new Error("No se pudo obtener la tarea.");
     }
 };
 
-/**
- * Crea una nueva tarea en Firestore.
- */
 export const createTask = async (
   taskData: Omit<Task, 'id' | 'createdAt'>,
   user: { uid: string, displayName: string | null }
@@ -509,22 +476,19 @@ export const createTask = async (
     await setDoc(docRef, newTask);
      await createAuditLog({
         userId: user.uid,
-        userName: user.displayName || 'Anonymous',
-        action: `Created task "${taskData.title}"`,
+        userName: user.displayName || 'Anónimo',
+        action: `Creó la tarea "${taskData.title}"`,
         entity: 'task',
         entityId: docRef.id,
         details: { projectId: taskData.projectId, title: taskData.title }
     });
     return { ...newTask, createdAt: new Date() } as Task;
   } catch (error) {
-    console.error('Error creating task: ', error);
-    throw new Error('Could not create the task.');
+    console.error('Error al crear la tarea: ', error);
+    throw new Error('No se pudo crear la tarea.');
   }
 };
 
-/**
- * Obtiene todas las tareas para un proyecto específico.
- */
 export const getTasks = async (projectId: string): Promise<Task[]> => {
   try {
     const q = query(collection(db, 'tasks'), where('projectId', '==', projectId));
@@ -535,18 +499,14 @@ export const getTasks = async (projectId: string): Promise<Task[]> => {
     });
     return tasks;
   } catch (error) {
-    console.error('Error getting tasks: ', error);
-    throw new Error('Could not get tasks.');
+    console.error('Error al obtener las tareas: ', error);
+    throw new Error('No se pudieron obtener las tareas.');
   }
 };
 
 
-/**
- * Obtiene todas las tareas para multiples proyectos.
- */
 export const getTasksForProjects = async (projectIds: string[]): Promise<Task[]> => {
   if (!projectIds || projectIds.length === 0) {
-    // If no project Ids, get all tasks for lookups
     const q = query(collection(db, 'tasks'));
     const querySnapshot = await getDocs(q);
     const tasks: Task[] = [];
@@ -556,7 +516,6 @@ export const getTasksForProjects = async (projectIds: string[]): Promise<Task[]>
     return tasks;
   }
   try {
-    // Firestore 'in' query limited to 30 elements per query.
     const taskChunks: Task[] = [];
     for (let i = 0; i < projectIds.length; i += 30) {
         const chunk = projectIds.slice(i, i + 30);
@@ -568,16 +527,11 @@ export const getTasksForProjects = async (projectIds: string[]): Promise<Task[]>
     }
     return taskChunks;
   } catch (error) {
-    console.error('Error getting tasks for projects: ', error);
-    throw new Error('Could not get tasks.');
+    console.error('Error al obtener tareas para proyectos: ', error);
+    throw new Error('No se pudieron obtener las tareas.');
   }
 }
 
-/**
- * Actualiza el estado de una tarea.
- * @param taskId - El ID de la tarea a actualizar.
- * @param status - El nuevo estado de la tarea.
- */
 export const updateTaskStatus = async (
   taskId: string,
   taskTitle: string,
@@ -590,31 +544,27 @@ export const updateTaskStatus = async (
     await updateDoc(taskRef, { status: newStatus, updatedAt: serverTimestamp() });
      await createAuditLog({
         userId: user.uid,
-        userName: user.displayName || 'Anonymous',
-        action: `Moved task "${taskTitle}" from ${oldStatus.replace('_', ' ')} to ${newStatus.replace('_', ' ')}`,
+        userName: user.displayName || 'Anónimo',
+        action: `Movió la tarea "${taskTitle}" de ${oldStatus.replace('_', ' ')} a ${newStatus.replace('_', ' ')}`,
         entity: 'task',
         entityId: taskId,
         details: { from: oldStatus, to: newStatus }
     });
-     // Create a notification for the task assignee, if they are not the one changing the status
      const task = await getTask(taskId);
      if (task && task.assigneeId && task.assigneeId !== user.uid) {
          await createNotification({
              userId: task.assigneeId,
              type: 'status_changed',
-             message: `The status of your task "${task.title}" was changed to "${newStatus.replace('_', ' ')}".`,
-             link: `/projects/${task.projectId}` // Adjust link as needed
+             message: `El estado de tu tarea "${task.title}" fue cambiado a "${newStatus.replace('_', ' ')}".`,
+             link: `/projects/${task.projectId}`
          });
      }
   } catch (error) {
-    console.error('Error updating task status: ', error);
-    throw new Error('Could not update the task status.');
+    console.error('Error al actualizar el estado de la tarea: ', error);
+    throw new Error('No se pudo actualizar el estado de la tarea.');
   }
 };
 
-/**
- * Actualiza una tarea con datos parciales.
- */
 export const updateTask = async (
   taskId: string,
   taskData: Partial<Task>,
@@ -627,36 +577,31 @@ export const updateTask = async (
       updatedAt: serverTimestamp(),
     });
     
-    // Example: Audit log for assignment change
     if(taskData.assigneeId) {
         const assignee = await getUserProfile(taskData.assigneeId);
          await createAuditLog({
             userId: user.uid,
-            userName: user.displayName || 'Anonymous',
-            action: `Assigned task to ${assignee?.displayName || 'N/A'}`,
+            userName: user.displayName || 'Anónimo',
+            action: `Asignó la tarea a ${assignee?.displayName || 'N/A'}`,
             entity: 'task',
             entityId: taskId,
             details: { assigneeId: taskData.assigneeId }
         });
-        // Create notification for assignment
         await createNotification({
             userId: taskData.assigneeId,
             type: 'task_assigned',
-            message: `You have been assigned a new task: "${taskData.title}"`,
-            link: `/projects/${taskData.projectId}` // Adjust link as needed
+            message: `Se te ha asignado una nueva tarea: "${taskData.title}"`,
+            link: `/projects/${taskData.projectId}`
         });
     }
 
   } catch (error) {
-    console.error('Error updating task: ', error);
-    throw new Error('Could not update task.');
+    console.error('Error al actualizar la tarea: ', error);
+    throw new Error('No se pudo actualizar la tarea.');
   }
 };
 
 
-/**
- * Elimina una tarea o subtarea.
- */
 export const deleteTask = async (
   taskId: string,
   taskTitle: string,
@@ -668,24 +613,19 @@ export const deleteTask = async (
 
     await createAuditLog({
       userId: user.uid,
-      userName: user.displayName || 'Anonymous',
-      action: `Deleted task "${taskTitle}"`,
+      userName: user.displayName || 'Anónimo',
+      action: `Eliminó la tarea "${taskTitle}"`,
       entity: 'task',
       entityId: taskId,
       details: { title: taskTitle },
     });
   } catch (error) {
-    console.error('Error deleting task: ', error);
-    throw new Error('Could not delete the task.');
+    console.error('Error al eliminar la tarea: ', error);
+    throw new Error('No se pudo eliminar la tarea.');
   }
 };
 
 
-// ---- Funciones para Bugs ----
-
-/**
- * Crea un nuevo bug en Firestore.
- */
 export const createBug = async (
   bugData: Omit<Bug, 'id' | 'createdAt' | 'updatedAt'>,
   user: { uid: string, displayName: string | null }
@@ -702,8 +642,8 @@ export const createBug = async (
 
     await createAuditLog({
         userId: user.uid,
-        userName: user.displayName || 'Anonymous',
-        action: `Reported bug "${bugData.title}"`,
+        userName: user.displayName || 'Anónimo',
+        action: `Reportó el bug "${bugData.title}"`,
         entity: 'bug',
         entityId: docRef.id,
         details: { projectId: bugData.projectId, title: bugData.title }
@@ -717,8 +657,8 @@ export const createBug = async (
                 await createNotification({
                     userId: owner.userId,
                     type: 'bug_critical',
-                    message: `A critical bug "${bugData.title}" has been reported in project ${project.name}.`,
-                    link: `/bugs` // Or a more specific link to the bug page
+                    message: `Un bug crítico "${bugData.title}" ha sido reportado en el proyecto ${project.name}.`,
+                    link: `/bugs`
                 });
              }
         }
@@ -726,14 +666,11 @@ export const createBug = async (
     
     return { ...newBugData, createdAt: new Date(), updatedAt: new Date() } as Bug;
   } catch (error) {
-    console.error('Error creating bug: ', error);
-    throw new Error('Could not report the bug.');
+    console.error('Error al crear el bug: ', error);
+    throw new Error('No se pudo reportar el bug.');
   }
 };
 
-/**
- * Obtiene todos los bugs. Se podría filtrar por usuario si fuera necesario.
- */
 export const getBugs = async (): Promise<Bug[]> => {
   try {
     const q = query(collection(db, 'bugs'), orderBy('createdAt', 'desc'));
@@ -744,14 +681,11 @@ export const getBugs = async (): Promise<Bug[]> => {
     });
     return bugs;
   } catch (error) {
-    console.error('Error getting bugs: ', error);
-    throw new Error('Could not get bugs.');
+    console.error('Error al obtener los bugs: ', error);
+    throw new Error('No se pudieron obtener los bugs.');
   }
 };
 
-/**
- * Actualiza el estado de un bug.
- */
 export const updateBugStatus = async (
   bugId: string,
   bugTitle: string,
@@ -767,24 +701,19 @@ export const updateBugStatus = async (
     });
     await createAuditLog({
         userId: user.uid,
-        userName: user.displayName || 'Anonymous',
-        action: `Changed status of bug "${bugTitle}" from ${oldStatus.replace('_', ' ')} to ${newStatus.replace('_', ' ')}`,
+        userName: user.displayName || 'Anónimo',
+        action: `Cambió el estado del bug "${bugTitle}" de ${oldStatus.replace('_', ' ')} a ${newStatus.replace('_', ' ')}`,
         entity: 'bug',
         entityId: bugId,
         details: { from: oldStatus, to: newStatus }
     });
   } catch (error) {
-    console.error('Error updating bug status: ', error);
-    throw new Error('Could not update the bug status.');
+    console.error('Error al actualizar el estado del bug: ', error);
+    throw new Error('No se pudo actualizar el estado del bug.');
   }
 };
 
 
-// ---- Funciones para Timesheet ----
-
-/**
- * Crea un nuevo registro de tiempo en Firestore.
- */
 export const createTimeLog = async (
   timeLogData: Omit<TimeLog, 'id' | 'date'>
 ): Promise<TimeLog> => {
@@ -798,15 +727,11 @@ export const createTimeLog = async (
     await setDoc(docRef, newLog);
     return { ...newLog, date: new Timestamp(Date.now() / 1000, 0) } as TimeLog;
   } catch (error) {
-    console.error('Error creating time log: ', error);
-    throw new Error('Could not create the time log.');
+    console.error('Error al crear el registro de tiempo: ', error);
+    throw new Error('No se pudo crear el registro de tiempo.');
   }
 };
 
-/**
- * Obtiene registros de tiempo. Si se proporciona userId, filtra por usuario.
- * Si no, obtiene todos los registros.
- */
 export const getTimeLogs = async (userId?: string): Promise<TimeLog[]> => {
   try {
     const timeLogsRef = collection(db, 'timeLogs');
@@ -821,17 +746,12 @@ export const getTimeLogs = async (userId?: string): Promise<TimeLog[]> => {
     });
     return timeLogs;
   } catch (error) {
-    console.error('Error getting time logs: ', error);
-    throw new Error('Could not get time logs.');
+    console.error('Error al obtener los registros de tiempo: ', error);
+    throw new Error('No se pudieron obtener los registros de tiempo.');
   }
 };
 
 
-// ---- Funciones para Wiki ----
-
-/**
- * Crea una nueva página de Wiki.
- */
 export const createWikiPage = async (
   pageData: Omit<WikiPage, 'id' | 'createdAt' | 'updatedAt' | 'slug' | 'lastEditedBy'>,
   user: { uid: string, displayName: string | null }
@@ -851,8 +771,8 @@ export const createWikiPage = async (
     
     await createAuditLog({
         userId: user.uid,
-        userName: user.displayName || 'Anonymous',
-        action: `Created wiki article "${pageData.title}"`,
+        userName: user.displayName || 'Anónimo',
+        action: `Creó el artículo de wiki "${pageData.title}"`,
         entity: 'wiki',
         entityId: docRef.id,
         details: {}
@@ -861,14 +781,11 @@ export const createWikiPage = async (
     const docSnap = await getDoc(docRef);
     return { id: docRef.id, ...docSnap.data() } as WikiPage;
   } catch (error) {
-    console.error('Error creating wiki page: ', error);
-    throw new Error('Could not create wiki page.');
+    console.error('Error al crear la página de wiki: ', error);
+    throw new Error('No se pudo crear la página de wiki.');
   }
 };
 
-/**
- * Obtiene todas las páginas de Wiki.
- */
 export const getWikiPages = async (): Promise<WikiPage[]> => {
   try {
     const q = query(collection(db, 'wiki'), orderBy('title', 'asc'));
@@ -879,14 +796,11 @@ export const getWikiPages = async (): Promise<WikiPage[]> => {
     });
     return pages;
   } catch (error) {
-    console.error('Error getting wiki pages: ', error);
-    throw new Error('Could not get wiki pages.');
+    console.error('Error al obtener las páginas de wiki: ', error);
+    throw new Error('No se pudieron obtener las páginas de wiki.');
   }
 };
 
-/**
- * Obtiene una página de Wiki por su slug.
- */
 export const getWikiPageBySlug = async (slug: string): Promise<WikiPage | null> => {
     try {
         const q = query(collection(db, 'wiki'), where('slug', '==', slug));
@@ -897,14 +811,11 @@ export const getWikiPageBySlug = async (slug: string): Promise<WikiPage | null> 
         const docSnap = querySnapshot.docs[0];
         return { id: docSnap.id, ...docSnap.data() } as WikiPage;
     } catch (error) {
-        console.error('Error getting wiki page by slug: ', error);
-        throw new Error('Could not get wiki page.');
+        console.error('Error al obtener la página de wiki por slug: ', error);
+        throw new Error('No se pudo obtener la página de wiki.');
     }
 }
 
-/**
- * Obtiene una página de Wiki por su ID.
- */
 export const getWikiPageById = async (id: string): Promise<WikiPage | null> => {
     try {
         const docRef = doc(db, 'wiki', id);
@@ -914,14 +825,11 @@ export const getWikiPageById = async (id: string): Promise<WikiPage | null> => {
         }
         return null;
     } catch (error) {
-        console.error("Error getting wiki page by ID:", error);
-        throw new Error('Could not get wiki page.');
+        console.error("Error al obtener la página de wiki por ID:", error);
+        throw new Error('No se pudo obtener la página de wiki.');
     }
 }
 
-/**
- * Updates a wiki page and creates a version history entry.
- */
 export const updateWikiPage = async (
   pageId: string,
   pageData: Pick<WikiPage, 'title' | 'content'>,
@@ -930,14 +838,12 @@ export const updateWikiPage = async (
     const batch = writeBatch(db);
     const pageRef = doc(db, 'wiki', pageId);
     
-    // 1. Get current page state to create a version from it.
     const currentPageSnap = await getDoc(pageRef);
     if (!currentPageSnap.exists()) {
-        throw new Error("Wiki page to update does not exist.");
+        throw new Error("La página de wiki a actualizar no existe.");
     }
     const currentPageData = currentPageSnap.data() as WikiPage;
 
-    // 2. Create a new version document in the subcollection.
     const versionRef = doc(collection(db, 'wiki', pageId, 'versions'));
     const versionData: Omit<WikiPageVersion, 'versionId'> = {
         pageId: pageId,
@@ -946,11 +852,10 @@ export const updateWikiPage = async (
         createdBy: currentPageData.createdBy,
         lastEditedBy: currentPageData.lastEditedBy,
         createdAt: currentPageData.createdAt,
-        updatedAt: currentPageData.updatedAt, // This is the timestamp of the version
+        updatedAt: currentPageData.updatedAt,
     };
     batch.set(versionRef, versionData);
 
-    // 3. Update the main page document.
     const newSlug = pageData.title.toLowerCase().replace(/\s+/g, '-').replace(/[^\w-]+/g, '');
     const updateData = {
         ...pageData,
@@ -960,14 +865,12 @@ export const updateWikiPage = async (
     };
     batch.update(pageRef, updateData);
 
-    // 4. Commit the batch.
     await batch.commit();
 
-    // 5. Create audit log.
     await createAuditLog({
         userId: user.uid,
-        userName: user.displayName || 'Anonymous',
-        action: `Updated wiki article "${pageData.title}"`,
+        userName: user.displayName || 'Anónimo',
+        action: `Actualizó el artículo de wiki "${pageData.title}"`,
         entity: 'wiki',
         entityId: pageId,
         details: { oldTitle: currentPageData.title, newTitle: pageData.title }
@@ -977,9 +880,6 @@ export const updateWikiPage = async (
     return { id: updatedDoc.id, ...updatedDoc.data() } as WikiPage;
 }
 
-/**
- * Gets all historical versions for a specific wiki page.
- */
 export const getWikiPageVersions = async (pageId: string): Promise<WikiPageVersion[]> => {
     try {
         const versionsRef = collection(db, 'wiki', pageId, 'versions');
@@ -987,17 +887,12 @@ export const getWikiPageVersions = async (pageId: string): Promise<WikiPageVersi
         const querySnapshot = await getDocs(q);
         return querySnapshot.docs.map(doc => ({ versionId: doc.id, ...doc.data() } as WikiPageVersion));
     } catch (error) {
-        console.error('Error getting wiki page versions:', error);
-        throw new Error('Could not retrieve page history.');
+        console.error('Error al obtener las versiones de la página de wiki:', error);
+        throw new Error('No se pudo recuperar el historial de la página.');
     }
 }
 
 
-// ---- Funciones para Sprints ----
-
-/**
- * Crea un nuevo sprint.
- */
 export const createSprint = async (
   sprintData: Omit<Sprint, 'id' | 'createdAt' | 'updatedAt'>,
   user: { uid: string, displayName: string | null }
@@ -1014,8 +909,8 @@ export const createSprint = async (
 
      await createAuditLog({
         userId: user.uid,
-        userName: user.displayName || 'Anonymous',
-        action: `Created sprint "${sprintData.name}"`,
+        userName: user.displayName || 'Anónimo',
+        action: `Creó el sprint "${sprintData.name}"`,
         entity: 'sprint',
         entityId: docRef.id,
         details: { projectId: sprintData.projectId }
@@ -1023,14 +918,11 @@ export const createSprint = async (
     const docSnap = await getDoc(docRef);
     return { ...docSnap.data() } as Sprint;
   } catch (error) {
-    console.error('Error creating sprint: ', error);
-    throw new Error('Could not create the sprint.');
+    console.error('Error al crear el sprint: ', error);
+    throw new Error('No se pudo crear el sprint.');
   }
 };
 
-/**
- * Obtiene todos los sprints para un proyecto específico.
- */
 export const getSprintsForProject = async (projectId: string): Promise<Sprint[]> => {
   try {
     const q = query(collection(db, 'sprints'), where('projectId', '==', projectId));
@@ -1039,17 +931,13 @@ export const getSprintsForProject = async (projectId: string): Promise<Sprint[]>
     querySnapshot.forEach((doc) => {
       sprints.push({ id: doc.id, ...doc.data() } as Sprint);
     });
-    // Sort on the client-side
     return sprints.sort((a, b) => b.startDate.toDate().getTime() - a.startDate.toDate().getTime());
   } catch (error) {
-    console.error('Error getting sprints: ', error);
-    throw new Error('Could not get sprints.');
+    console.error('Error al obtener sprints: ', error);
+    throw new Error('No se pudieron obtener los sprints.');
   }
 };
 
-/**
- * Actualiza el estado de un sprint.
- */
 export const updateSprintStatus = async (
   sprintId: string,
   sprintName: string,
@@ -1065,24 +953,19 @@ export const updateSprintStatus = async (
         });
         await createAuditLog({
             userId: user.uid,
-            userName: user.displayName || 'Anonymous',
-            action: `Changed status of sprint "${sprintName}" from ${oldStatus} to ${newStatus}`,
+            userName: user.displayName || 'Anónimo',
+            action: `Cambió el estado del sprint "${sprintName}" de ${oldStatus} a ${newStatus}`,
             entity: 'sprint',
             entityId: sprintId,
             details: { from: oldStatus, to: newStatus }
         });
     } catch (error) {
-        console.error('Error updating sprint status: ', error);
-        throw new Error('Could not update sprint status.');
+        console.error('Error al actualizar el estado del sprint: ', error);
+        throw new Error('No se pudo actualizar el estado del sprint.');
     }
 };
 
 
-// ---- Funciones para Notificaciones ----
-
-/**
- * Crea una nueva notificación en Firestore.
- */
 export const createNotification = async (notificationData: Omit<Notification, 'id' | 'createdAt' | 'read'>): Promise<void> => {
     try {
         await addDoc(collection(db, 'notifications'), {
@@ -1091,14 +974,10 @@ export const createNotification = async (notificationData: Omit<Notification, 'i
             createdAt: serverTimestamp(),
         });
     } catch (error) {
-        console.error("Error creating notification:", error);
-        // Silently fail to not interrupt user flow
+        console.error("Error al crear la notificación:", error);
     }
 };
 
-/**
- * Escucha las notificaciones para un usuario en tiempo real.
- */
 export const getNotifications = (userId: string, callback: (notifications: Notification[]) => void): () => void => {
     const q = query(collection(db, 'notifications'), where('userId', '==', userId), orderBy('createdAt', 'desc'), limit(20));
 
@@ -1109,28 +988,22 @@ export const getNotifications = (userId: string, callback: (notifications: Notif
         });
         callback(notifications);
     }, (error) => {
-        console.error("Error getting notifications in real-time:", error);
+        console.error("Error al obtener notificaciones en tiempo real:", error);
     });
 
     return unsubscribe;
 };
 
-/**
- * Marca una notificación como leída.
- */
 export const markNotificationAsRead = async (notificationId: string): Promise<void> => {
     try {
         const notificationRef = doc(db, 'notifications', notificationId);
         await updateDoc(notificationRef, { read: true });
     } catch (error) {
-        console.error("Error marking notification as read:", error);
-        throw new Error("Could not update notification.");
+        console.error("Error al marcar la notificación como leída:", error);
+        throw new Error("No se pudo actualizar la notificación.");
     }
 };
 
-/**
- * Marca todas las notificaciones de un usuario como leídas.
- */
 export const markAllNotificationsAsRead = async (userId: string): Promise<void> => {
     const q = query(collection(db, 'notifications'), where('userId', '==', userId), where('read', '==', false));
     try {
@@ -1141,23 +1014,17 @@ export const markAllNotificationsAsRead = async (userId: string): Promise<void> 
         });
         await batch.commit();
     } catch (error) {
-        console.error("Error marking all notifications as read:", error);
-        throw new Error("Could not update all notifications.");
+        console.error("Error al marcar todas las notificaciones como leídas:", error);
+        throw new Error("No se pudieron actualizar todas las notificaciones.");
     }
 }
 
 
-
-// ---- Funciones para Comentarios ----
-
-/**
- * Añade un nuevo comentario a una tarea.
- */
 export const addComment = async (taskId: string, commentData: Omit<Comment, 'id' | 'createdAt'>): Promise<Comment> => {
     try {
         const task = await getTask(taskId);
         if (!task) {
-            throw new Error("Task not found to add comment.");
+            throw new Error("Tarea no encontrada para añadir comentario.");
         }
 
         const commentsRef = collection(db, 'tasks', taskId, 'comments');
@@ -1169,26 +1036,22 @@ export const addComment = async (taskId: string, commentData: Omit<Comment, 'id'
         };
         await setDoc(docRef, newComment);
 
-        // Create a notification for the task assignee, if they are not the one commenting
         if (task.assigneeId && task.assigneeId !== commentData.userId) {
             await createNotification({
                 userId: task.assigneeId,
                 type: 'comment',
-                message: `${commentData.userName} commented on task: "${task.title}"`,
-                link: `/projects/${task.projectId}` // Link to the project board for now
+                message: `${commentData.userName} comentó en la tarea: "${task.title}"`,
+                link: `/projects/${task.projectId}`
             });
         }
 
         return { ...newComment, createdAt: new Timestamp(Date.now() / 1000, 0) } as Comment;
     } catch (error) {
-        console.error("Error adding comment:", error);
-        throw new Error("Could not add comment.");
+        console.error("Error al añadir comentario:", error);
+        throw new Error("No se pudo añadir el comentario.");
     }
 }
 
-/**
- * Escucha los comentarios de una tarea en tiempo real.
- */
 export const getComments = (taskId: string, callback: (comments: Comment[]) => void): () => void => {
     const commentsRef = collection(db, 'tasks', taskId, 'comments');
     const q = query(commentsRef, orderBy('createdAt', 'asc'));
@@ -1200,7 +1063,7 @@ export const getComments = (taskId: string, callback: (comments: Comment[]) => v
         });
         callback(comments);
     }, (error) => {
-        console.error("Error getting comments in real-time:", error);
+        console.error("Error al obtener comentarios en tiempo real:", error);
     });
 
     return unsubscribe;

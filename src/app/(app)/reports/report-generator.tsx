@@ -39,7 +39,7 @@ export function ReportGenerator({
             ? true
             : isWithinInterval(logDate, {
                 start: dateRange.from,
-                end: dateRange.to || dateRange.from, // If no 'to' date, use 'from' as the interval end
+                end: dateRange.to || dateRange.from,
               });
         return projectMatch && userMatch && dateMatch;
     });
@@ -54,7 +54,7 @@ export function ReportGenerator({
   const getProjectName = (projectId: string) => projects.find(p => p.id === projectId)?.name || 'N/A';
 
   const handleExportCsv = () => {
-    const headers = ['Project', 'Task', 'User', 'Description', 'Date', 'Hours'];
+    const headers = ['Proyecto', 'Tarea', 'Usuario', 'Descripción', 'Fecha', 'Horas'];
     const rows = filteredLogs.map(log => [
         `"${getProjectName(log.projectId)}"`,
         `"${getTaskTitle(log.taskId)}"`,
@@ -71,7 +71,7 @@ export function ReportGenerator({
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
     link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `timesheet_report_${format(new Date(), 'yyyy-MM-dd')}.csv`);
+    link.setAttribute("download", `informe_horas_${format(new Date(), 'yyyy-MM-dd')}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -81,9 +81,9 @@ export function ReportGenerator({
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Time Log Report</CardTitle>
+        <CardTitle>Informe de Horas Registradas</CardTitle>
         <CardDescription>
-          Filter and view time logs by project, user and date, then export the results.
+          Filtra y visualiza los registros de tiempo por proyecto, usuario y fecha, luego exporta los resultados.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -91,10 +91,10 @@ export function ReportGenerator({
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 w-full">
                 <Select onValueChange={setSelectedProjectId} defaultValue="all">
                     <SelectTrigger>
-                        <SelectValue placeholder="Filter by project..." />
+                        <SelectValue placeholder="Filtrar por proyecto..." />
                     </SelectTrigger>
                     <SelectContent>
-                        <SelectItem value="all">All Projects</SelectItem>
+                        <SelectItem value="all">Todos los Proyectos</SelectItem>
                         {projects.map((p) => (
                         <SelectItem key={p.id} value={p.id!}>
                             {p.name}
@@ -104,10 +104,10 @@ export function ReportGenerator({
                 </Select>
                  <Select onValueChange={setSelectedUserId} defaultValue="all">
                     <SelectTrigger>
-                        <SelectValue placeholder="Filter by user..." />
+                        <SelectValue placeholder="Filtrar por usuario..." />
                     </SelectTrigger>
                     <SelectContent>
-                        <SelectItem value="all">All Users</SelectItem>
+                        <SelectItem value="all">Todos los Usuarios</SelectItem>
                         {users.map((u) => (
                         <SelectItem key={u.id} value={u.id!}>
                             {u.displayName || u.email}
@@ -136,7 +136,7 @@ export function ReportGenerator({
                             format(dateRange.from, "LLL dd, y")
                           )
                         ) : (
-                          <span>Pick a date range</span>
+                          <span>Elige un rango de fechas</span>
                         )}
                       </Button>
                     </PopoverTrigger>
@@ -154,7 +154,7 @@ export function ReportGenerator({
             </div>
             <Button variant="outline" onClick={handleExportCsv} disabled={filteredLogs.length === 0} className="shrink-0">
                 <Download className="mr-2" />
-                Export CSV
+                Exportar CSV
             </Button>
         </div>
 
@@ -162,11 +162,11 @@ export function ReportGenerator({
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>User</TableHead>
-                <TableHead>Project</TableHead>
-                <TableHead>Task</TableHead>
-                <TableHead>Date</TableHead>
-                <TableHead className="text-right">Hours</TableHead>
+                <TableHead>Usuario</TableHead>
+                <TableHead>Proyecto</TableHead>
+                <TableHead>Tarea</TableHead>
+                <TableHead>Fecha</TableHead>
+                <TableHead className="text-right">Horas</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -183,7 +183,7 @@ export function ReportGenerator({
               ) : (
                 <TableRow>
                   <TableCell colSpan={5} className="h-24 text-center">
-                    No time logs found for the selected criteria.
+                    No se encontraron registros de tiempo para los criterios seleccionados.
                   </TableCell>
                 </TableRow>
               )}

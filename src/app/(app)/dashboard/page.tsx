@@ -81,31 +81,31 @@ export default function DashboardPage() {
     <div className="flex flex-col gap-8">
       <div className="flex flex-col gap-2">
         <h1 className="font-headline text-3xl font-bold tracking-tight">
-          Dashboard
+          Panel Principal
         </h1>
         <p className="text-muted-foreground">
-          Welcome back! Here's a summary of your workspace.
+          ¡Bienvenido de nuevo! Aquí tienes un resumen de tu espacio de trabajo.
         </p>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
          <DashboardCard
-            title="Active Projects"
-            description="Projects currently in progress."
+            title="Proyectos Activos"
+            description="Proyectos actualmente en progreso."
             value={projects.length}
             icon={<Briefcase className="h-4 w-4 text-muted-foreground" />}
             isLoading={isLoading}
         />
         <DashboardCard
-            title="Tasks Due"
-            description="Tasks that are not yet 'Done'."
+            title="Tareas Pendientes"
+            description="Tareas que aún no están en 'Hecho'."
             value={tasks.length}
             icon={<ListTodo className="h-4 w-4 text-muted-foreground" />}
             isLoading={isLoading}
         />
         <DashboardCard
-            title="Open Bugs"
-            description="Bugs that are not 'Resolved' or 'Closed'."
+            title="Bugs Abiertos"
+            description="Bugs que no están 'Resueltos' o 'Cerrados'."
             value={bugs.length}
             icon={<BugIcon className="h-4 w-4 text-muted-foreground" />}
             isLoading={isLoading}

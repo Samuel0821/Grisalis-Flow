@@ -61,12 +61,10 @@ export default function ProjectsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   
-  // State for dialogs
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   
-  // State for forms
   const [currentProject, setCurrentProject] = useState<Project | null>(null);
   const [projectName, setProjectName] = useState('');
   const [projectDescription, setProjectDescription] = useState('');
@@ -82,8 +80,8 @@ export default function ProjectsPage() {
           console.error('Error fetching projects:', error);
           toast({
             variant: 'destructive',
-            title: 'Error loading projects',
-            description: 'Could not load projects. Please try again.',
+            title: 'Error al cargar proyectos',
+            description: 'No se pudieron cargar los proyectos. Por favor, inténtalo de nuevo.',
           });
         } finally {
           setIsLoading(false);
@@ -111,12 +109,12 @@ export default function ProjectsPage() {
         createdBy: user.uid,
       }, { uid: user.uid, displayName: user.displayName, email: user.email });
       setProjects((prev) => [...prev, newProject]);
-      toast({ title: 'Success!', description: `Project "${projectName}" created.` });
+      toast({ title: '¡Éxito!', description: `Proyecto "${projectName}" creado.` });
       resetForm();
       setIsCreateDialogOpen(false);
     } catch (error) {
       console.error(error);
-      toast({ variant: 'destructive', title: 'Error creating project' });
+      toast({ variant: 'destructive', title: 'Error al crear proyecto' });
     } finally {
       setIsSubmitting(false);
     }
@@ -130,12 +128,12 @@ export default function ProjectsPage() {
       try {
           await updateProject(currentProject.id!, { name: projectName, description: projectDescription }, { uid: user.uid, displayName: user.displayName });
           setProjects(prev => prev.map(p => p.id === currentProject.id ? {...p, name: projectName, description: projectDescription} : p));
-          toast({ title: 'Success!', description: `Project "${projectName}" updated.` });
+          toast({ title: '¡Éxito!', description: `Proyecto "${projectName}" actualizado.` });
           resetForm();
           setIsEditDialogOpen(false);
       } catch (error) {
           console.error(error);
-          toast({ variant: 'destructive', title: 'Error updating project' });
+          toast({ variant: 'destructive', title: 'Error al actualizar proyecto' });
       } finally {
           setIsSubmitting(false);
       }
@@ -147,12 +145,12 @@ export default function ProjectsPage() {
       try {
           await deleteProject(currentProject.id!, currentProject.name, { uid: user.uid, displayName: user.displayName });
           setProjects(prev => prev.filter(p => p.id !== currentProject.id));
-          toast({ title: 'Success!', description: `Project "${currentProject.name}" deleted.`});
+          toast({ title: '¡Éxito!', description: `Proyecto "${currentProject.name}" eliminado.`});
           resetForm();
           setIsDeleteDialogOpen(false);
       } catch (error) {
           console.error(error);
-          toast({ variant: 'destructive', title: 'Error deleting project' });
+          toast({ variant: 'destructive', title: 'Error al eliminar proyecto' });
       }
   }
   
@@ -173,58 +171,58 @@ export default function ProjectsPage() {
     <div className="flex flex-col gap-8">
       <div className="flex items-center justify-between">
         <div className="flex flex-col gap-2">
-          <h1 className="font-headline text-3xl font-bold tracking-tight">Projects</h1>
-          <p className="text-muted-foreground">Create and manage your projects here.</p>
+          <h1 className="font-headline text-3xl font-bold tracking-tight">Proyectos</h1>
+          <p className="text-muted-foreground">Crea y gestiona tus proyectos aquí.</p>
         </div>
         <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
           <DialogTrigger asChild>
             <Button>
               <PlusCircle className="mr-2" />
-              Create Project
+              Crear Proyecto
             </Button>
           </DialogTrigger>
           <DialogContent className="sm:max-w-[425px]">
             <form onSubmit={handleCreateProject}>
               <DialogHeader>
-                <DialogTitle>Create new project</DialogTitle>
+                <DialogTitle>Crear nuevo proyecto</DialogTitle>
                 <DialogDescription>
-                  Give your new project a name and description.
+                  Dale a tu nuevo proyecto un nombre y una descripción.
                 </DialogDescription>
               </DialogHeader>
               <div className="grid gap-4 py-4">
                 <div className="grid grid-cols-4 items-center gap-4">
                   <Label htmlFor="name" className="text-right">
-                    Name
+                    Nombre
                   </Label>
                   <Input
                     id="name"
                     value={projectName}
                     onChange={(e) => setProjectName(e.target.value)}
                     className="col-span-3"
-                    placeholder="My awesome project"
+                    placeholder="Mi increíble proyecto"
                     disabled={isSubmitting}
                   />
                 </div>
                 <div className="grid grid-cols-4 items-center gap-4">
                   <Label htmlFor="description" className="text-right">
-                    Description
+                    Descripción
                   </Label>
                   <Textarea
                     id="description"
                     value={projectDescription}
                     onChange={(e) => setProjectDescription(e.target.value)}
                     className="col-span-3"
-                    placeholder="Describe what your project is about."
+                    placeholder="Describe de qué trata tu proyecto."
                     disabled={isSubmitting}
                   />
                 </div>
               </div>
               <DialogFooter>
-                <DialogClose asChild><Button variant="outline">Cancel</Button></DialogClose>
+                <DialogClose asChild><Button variant="outline">Cancelar</Button></DialogClose>
                 <Button type="submit" disabled={isSubmitting || !projectName.trim()}>
                   {isSubmitting ? (
-                    <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Creating...</>
-                  ) : 'Create Project'}
+                    <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Creando...</>
+                  ) : 'Crear Proyecto'}
                 </Button>
               </DialogFooter>
             </form>
@@ -259,10 +257,10 @@ export default function ProjectsPage() {
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
                         <DropdownMenuItem onClick={() => openEditDialog(project)}>
-                          <Edit className="mr-2 h-4 w-4" /> Edit
+                          <Edit className="mr-2 h-4 w-4" /> Editar
                         </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => openDeleteDialog(project)} className="text-destructive">
-                          <Trash2 className="mr-2 h-4 w-4" /> Delete
+                          <Trash2 className="mr-2 h-4 w-4" /> Eliminar
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
@@ -271,7 +269,7 @@ export default function ProjectsPage() {
                  {/* Content can go here */}
               </CardContent>
               <CardFooter>
-                  <p className="text-sm text-muted-foreground">Status: <span className="font-medium text-foreground">{project.status || 'Active'}</span></p>
+                  <p className="text-sm text-muted-foreground">Estado: <span className="font-medium text-foreground">{project.status || 'Activo'}</span></p>
               </CardFooter>
             </Card>
           ))}
@@ -279,8 +277,8 @@ export default function ProjectsPage() {
       ) : (
         <div className="flex h-64 items-center justify-center rounded-lg border border-dashed text-center">
           <div className="flex flex-col items-center gap-2 text-muted-foreground">
-            <h2 className="text-lg font-semibold">No projects yet</h2>
-            <p className="text-sm">Create your first project to get started!</p>
+            <h2 className="text-lg font-semibold">Aún no hay proyectos</h2>
+            <p className="text-sm">¡Crea tu primer proyecto para empezar!</p>
           </div>
         </div>
       )}
@@ -291,15 +289,15 @@ export default function ProjectsPage() {
         <DialogContent className="sm:max-w-[425px]">
             <form onSubmit={handleEditProject}>
             <DialogHeader>
-                <DialogTitle>Edit Project</DialogTitle>
+                <DialogTitle>Editar Proyecto</DialogTitle>
                 <DialogDescription>
-                Update the name and description of your project.
+                Actualiza el nombre y la descripción de tu proyecto.
                 </DialogDescription>
             </DialogHeader>
             <div className="grid gap-4 py-4">
                 <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="edit-name" className="text-right">
-                    Name
+                    Nombre
                 </Label>
                 <Input
                     id="edit-name"
@@ -311,7 +309,7 @@ export default function ProjectsPage() {
                 </div>
                 <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="edit-description" className="text-right">
-                    Description
+                    Descripción
                 </Label>
                 <Textarea
                     id="edit-description"
@@ -323,11 +321,11 @@ export default function ProjectsPage() {
                 </div>
             </div>
             <DialogFooter>
-                <DialogClose asChild><Button variant="outline">Cancel</Button></DialogClose>
+                <DialogClose asChild><Button variant="outline">Cancelar</Button></DialogClose>
                 <Button type="submit" disabled={isSubmitting || !projectName.trim()}>
                 {isSubmitting ? (
-                    <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Saving...</>
-                ) : 'Save Changes'}
+                    <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Guardando...</>
+                ) : 'Guardar Cambios'}
                 </Button>
             </DialogFooter>
             </form>
@@ -338,16 +336,16 @@ export default function ProjectsPage() {
     <AlertDialog open={isDeleteDialogOpen} onOpenChange={(isOpen) => { setIsDeleteDialogOpen(isOpen); if (!isOpen) resetForm(); }}>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+          <AlertDialogTitle>¿Estás absolutamente seguro?</AlertDialogTitle>
           <AlertDialogDescription>
-            This action cannot be undone. This will permanently delete the project
-            <span className="font-bold"> {currentProject?.name}</span> and all its associated tasks and bugs.
+            Esta acción no se puede deshacer. Esto eliminará permanentemente el proyecto
+            <span className="font-bold"> {currentProject?.name}</span> y todas sus tareas y bugs asociados.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel>Cancel</AlertDialogCancel>
+          <AlertDialogCancel>Cancelar</AlertDialogCancel>
           <AlertDialogAction onClick={handleDeleteProject} className="bg-destructive hover:bg-destructive/90">
-            Delete
+            Eliminar
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
@@ -355,5 +353,3 @@ export default function ProjectsPage() {
     </>
   );
 }
-
-    

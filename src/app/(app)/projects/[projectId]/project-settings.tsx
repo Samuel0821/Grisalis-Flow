@@ -39,7 +39,6 @@ export function ProjectSettings({ project }: { project: Project }) {
   const [members, setMembers] = useState<ProjectMember[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Add member form
   const [selectedUserId, setSelectedUserId] = useState<string>('');
   const [isAddingMember, setIsAddingMember] = useState(false);
 
@@ -54,7 +53,7 @@ export function ProjectSettings({ project }: { project: Project }) {
         setAllUsers(usersData);
         setMembers(membersData);
       } catch (error) {
-        toast({ variant: 'destructive', title: 'Error', description: 'Could not load project settings data.' });
+        toast({ variant: 'destructive', title: 'Error', description: 'No se pudieron cargar los datos de configuración del proyecto.' });
       } finally {
         setIsLoading(false);
       }
@@ -82,11 +81,11 @@ export function ProjectSettings({ project }: { project: Project }) {
       
       setMembers(prev => [...prev, newMember as ProjectMember]);
       setSelectedUserId('');
-      toast({ title: 'Success', description: `${selectedUser.displayName || selectedUser.email} has been added to the project.`});
+      toast({ title: 'Éxito', description: `${selectedUser.displayName || selectedUser.email} ha sido añadido al proyecto.`});
 
     } catch (error) {
         console.error(error)
-        toast({ variant: 'destructive', title: 'Error', description: 'Failed to add member.' });
+        toast({ variant: 'destructive', title: 'Error', description: 'No se pudo añadir el miembro.' });
     } finally {
         setIsAddingMember(false);
     }
@@ -97,10 +96,10 @@ export function ProjectSettings({ project }: { project: Project }) {
     try {
         await removeProjectMember(project.id!, memberToRemove.userId, memberToRemove.displayName, { uid: user.uid, displayName: user.displayName });
         setMembers(prev => prev.filter(m => m.userId !== memberToRemove.userId));
-        toast({ title: 'Success', description: `${memberToRemove.displayName} has been removed from the project.`});
+        toast({ title: 'Éxito', description: `${memberToRemove.displayName} ha sido eliminado del proyecto.`});
     } catch(error) {
         console.error(error);
-        toast({ variant: 'destructive', title: 'Error', description: 'Failed to remove member.' });
+        toast({ variant: 'destructive', title: 'Error', description: 'No se pudo eliminar el miembro.' });
     }
   }
 
@@ -114,17 +113,17 @@ export function ProjectSettings({ project }: { project: Project }) {
     <div className="max-w-2xl mx-auto space-y-8">
       <Card>
         <CardHeader>
-          <CardTitle>Manage Members</CardTitle>
-          <CardDescription>Add or remove members from this project.</CardDescription>
+          <CardTitle>Gestionar Miembros</CardTitle>
+          <CardDescription>Añade o elimina miembros de este proyecto.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           {isOwner && (
             <div className="p-4 border rounded-lg bg-background space-y-4">
-                <h4 className="font-medium">Add New Member</h4>
+                <h4 className="font-medium">Añadir Nuevo Miembro</h4>
                 <div className="flex items-center gap-2">
                     <Select onValueChange={setSelectedUserId} value={selectedUserId}>
                         <SelectTrigger className="flex-1">
-                            <SelectValue placeholder="Select a user to add" />
+                            <SelectValue placeholder="Selecciona un usuario para añadir" />
                         </SelectTrigger>
                         <SelectContent>
                             {nonMemberUsers.length > 0 ? (
@@ -132,20 +131,20 @@ export function ProjectSettings({ project }: { project: Project }) {
                                     <SelectItem key={u.id} value={u.id}>{u.displayName || u.email}</SelectItem>
                                 ))
                             ) : (
-                                <p className="p-2 text-sm text-muted-foreground">All users are already in the project.</p>
+                                <p className="p-2 text-sm text-muted-foreground">Todos los usuarios ya están en el proyecto.</p>
                             )}
                         </SelectContent>
                     </Select>
                     <Button onClick={handleAddMember} disabled={isAddingMember || !selectedUserId}>
                         {isAddingMember ? <Loader2 className="animate-spin" /> : <UserPlus />}
-                        <span className="ml-2">Add Member</span>
+                        <span className="ml-2">Añadir Miembro</span>
                     </Button>
                 </div>
             </div>
           )}
 
           <div className="space-y-4">
-             <h4 className="font-medium">Current Members</h4>
+             <h4 className="font-medium">Miembros Actuales</h4>
              <div className="border rounded-lg">
                 {members.map(member => (
                     <div key={member.userId} className="flex items-center justify-between p-3 border-b last:border-b-0">
@@ -169,14 +168,14 @@ export function ProjectSettings({ project }: { project: Project }) {
                                 </AlertDialogTrigger>
                                 <AlertDialogContent>
                                   <AlertDialogHeader>
-                                    <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                                    <AlertDialogTitle>¿Estás seguro?</AlertDialogTitle>
                                     <AlertDialogDescription>
-                                      This will remove <span className='font-bold'>{member.displayName}</span> from the project. They will lose access to its tasks and bugs. This action cannot be undone.
+                                      Esto eliminará a <span className='font-bold'>{member.displayName}</span> del proyecto. Perderá acceso a sus tareas y bugs. Esta acción no se puede deshacer.
                                     </AlertDialogDescription>
                                   </AlertDialogHeader>
                                   <AlertDialogFooter>
-                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                    <AlertDialogAction onClick={() => handleRemoveMember(member)} className="bg-destructive hover:bg-destructive/90">Remove Member</AlertDialogAction>
+                                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                    <AlertDialogAction onClick={() => handleRemoveMember(member)} className="bg-destructive hover:bg-destructive/90">Eliminar Miembro</AlertDialogAction>
                                   </AlertDialogFooter>
                                 </AlertDialogContent>
                               </AlertDialog>
@@ -189,9 +188,6 @@ export function ProjectSettings({ project }: { project: Project }) {
         </CardContent>
       </Card>
       
-      {/* Other settings cards can go here */}
     </div>
   );
 }
-
-    

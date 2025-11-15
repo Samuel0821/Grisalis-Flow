@@ -25,11 +25,11 @@ export default function NewWikiPage() {
   const handleCreatePage = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) {
-      toast({ variant: 'destructive', title: 'Not authenticated' });
+      toast({ variant: 'destructive', title: 'No autenticado' });
       return;
     }
     if (!title.trim() || !content.trim()) {
-      toast({ variant: 'destructive', title: 'Title and content are required' });
+      toast({ variant: 'destructive', title: 'Título y contenido son requeridos' });
       return;
     }
 
@@ -40,14 +40,14 @@ export default function NewWikiPage() {
         content,
         createdBy: user.uid,
       }, { uid: user.uid, displayName: user.displayName });
-      toast({ title: 'Success!', description: 'Wiki page created.' });
+      toast({ title: '¡Éxito!', description: 'Página de wiki creada.' });
       router.push(`/wiki/${newPage.slug}`);
     } catch (error) {
       console.error('Error creating wiki page:', error);
       toast({
         variant: 'destructive',
-        title: 'Error creating page',
-        description: 'Could not create the wiki page. Please try again.',
+        title: 'Error al crear la página',
+        description: 'No se pudo crear la página de wiki. Por favor, inténtalo de nuevo.',
       });
     } finally {
       setIsSubmitting(false);
@@ -57,22 +57,22 @@ export default function NewWikiPage() {
   return (
     <div className="flex flex-col gap-8">
       <div className="flex flex-col gap-2">
-        <h1 className="font-headline text-3xl font-bold tracking-tight">Create New Wiki Article</h1>
-        <p className="text-muted-foreground">Share your knowledge with the team.</p>
+        <h1 className="font-headline text-3xl font-bold tracking-tight">Crear Nuevo Artículo de Wiki</h1>
+        <p className="text-muted-foreground">Comparte tu conocimiento con el equipo.</p>
       </div>
 
       <form onSubmit={handleCreatePage}>
         <Card>
           <CardHeader>
-            <CardTitle>Article Editor</CardTitle>
-            <CardDescription>Use markdown for formatting.</CardDescription>
+            <CardTitle>Editor de Artículo</CardTitle>
+            <CardDescription>Usa markdown para el formato.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="title">Title</Label>
+              <Label htmlFor="title">Título</Label>
               <Input
                 id="title"
-                placeholder="E.g., How to set up the development environment"
+                placeholder="Ej: Cómo configurar el entorno de desarrollo"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 disabled={isSubmitting}
@@ -80,10 +80,10 @@ export default function NewWikiPage() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="content">Content</Label>
+              <Label htmlFor="content">Contenido</Label>
               <Textarea
                 id="content"
-                placeholder="Write your article content here. Markdown is supported."
+                placeholder="Escribe el contenido de tu artículo aquí. Se soporta Markdown."
                 value={content}
                 onChange={(e) => setContent(e.target.value)}
                 disabled={isSubmitting}
@@ -95,18 +95,18 @@ export default function NewWikiPage() {
           </CardContent>
           <CardFooter className="flex justify-between">
             <Button variant="outline" asChild>
-              <Link href="/wiki">Cancel</Link>
+              <Link href="/wiki">Cancelar</Link>
             </Button>
             <Button type="submit" disabled={isSubmitting || !title.trim() || !content.trim()}>
               {isSubmitting ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Saving...
+                  Guardando...
                 </>
               ) : (
                 <>
                   <Save className="mr-2 h-4 w-4" />
-                  Save Article
+                  Guardar Artículo
                 </>
               )}
             </Button>

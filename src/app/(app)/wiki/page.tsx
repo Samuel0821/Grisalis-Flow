@@ -27,8 +27,8 @@ export default function WikiPage() {
           console.error('Error fetching wiki pages:', error);
           toast({
             variant: 'destructive',
-            title: 'Error loading wiki pages',
-            description: 'Could not load wiki pages. Please try again.',
+            title: 'Error al cargar las páginas del wiki',
+            description: 'No se pudieron cargar las páginas del wiki. Por favor, inténtalo de nuevo.',
           });
         } finally {
           setIsLoading(false);
@@ -42,13 +42,13 @@ export default function WikiPage() {
     <div className="flex flex-col gap-8">
       <div className="flex items-center justify-between">
         <div className="flex flex-col gap-2">
-          <h1 className="font-headline text-3xl font-bold tracking-tight">Internal Wiki</h1>
-          <p className="text-muted-foreground">Your team's central knowledge base.</p>
+          <h1 className="font-headline text-3xl font-bold tracking-tight">Wiki Interna</h1>
+          <p className="text-muted-foreground">La base de conocimientos central de tu equipo.</p>
         </div>
         <Button asChild>
           <Link href="/wiki/new">
             <PlusCircle className="mr-2" />
-            Create Article
+            Crear Artículo
           </Link>
         </Button>
       </div>
@@ -70,7 +70,7 @@ export default function WikiPage() {
                 </CardHeader>
                 <CardContent className="flex-grow">
                    <p className="text-sm text-muted-foreground line-clamp-3">
-                     {page.content.substring(0, 150) || 'No content preview.'}
+                     {page.content.substring(0, 150) || 'Sin vista previa de contenido.'}
                    </p>
                 </CardContent>
               </Card>
@@ -80,8 +80,8 @@ export default function WikiPage() {
       ) : (
         <div className="flex h-64 items-center justify-center rounded-lg border border-dashed text-center">
           <div className="flex flex-col items-center gap-2 text-muted-foreground">
-            <h2 className="text-lg font-semibold">No articles yet</h2>
-            <p className="text-sm">Create the first article to start building your knowledge base!</p>
+            <h2 className="text-lg font-semibold">Aún no hay artículos</h2>
+            <p className="text-sm">¡Crea el primer artículo para empezar a construir tu base de conocimientos!</p>
           </div>
         </div>
       )}

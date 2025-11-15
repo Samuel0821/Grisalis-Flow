@@ -20,7 +20,7 @@ const priorityBadges: Record<TaskPriority, 'destructive' | 'secondary' | 'outlin
 
 export function TaskList({ tasks }: { tasks: Task[] }) {
   if (tasks.length === 0) {
-    return <p className="text-sm text-muted-foreground px-6 pb-6">No tasks assigned to this sprint yet.</p>;
+    return <p className="text-sm text-muted-foreground px-6 pb-6">Aún no hay tareas asignadas a este sprint.</p>;
   }
 
   return (

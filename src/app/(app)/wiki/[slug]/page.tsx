@@ -7,6 +7,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { Loader2, Edit, History } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { format, formatDistanceToNow } from 'date-fns';
+import { es } from 'date-fns/locale';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import {
@@ -19,10 +20,7 @@ import {
 } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
-// Basic markdown to HTML renderer
 const MarkdownRenderer = ({ content }: { content: string }) => {
-    // This is a very basic renderer for demonstration.
-    // For a real app, you'd want a more robust library like 'react-markdown'.
     const htmlContent = content
         .replace(/^# (.*$)/gim, '<h1 class="text-3xl font-bold my-4">$1</h1>')
         .replace(/^## (.*$)/gim, '<h2 class="text-2xl font-bold my-3">$1</h2>')
@@ -61,16 +59,16 @@ function HistoryDialog({ pageId }: { pageId: string }) {
     return (
         <Dialog open={isDialogOpen} onOpenChange={(open) => { setIsDialogOpen(open); if (!open) setSelectedVersion(null); }}>
             <DialogTrigger asChild>
-                <Button variant="outline"><History className="mr-2"/> View History</Button>
+                <Button variant="outline"><History className="mr-2"/> Ver Historial</Button>
             </DialogTrigger>
             <DialogContent className="max-w-4xl h-[80vh] flex flex-col">
                 <DialogHeader>
-                    <DialogTitle>Article History</DialogTitle>
-                    <DialogDescription>Showing past versions of this article.</DialogDescription>
+                    <DialogTitle>Historial del Artículo</DialogTitle>
+                    <DialogDescription>Mostrando versiones pasadas de este artículo.</DialogDescription>
                 </DialogHeader>
                 <div className="grid grid-cols-3 gap-6 flex-1 overflow-hidden">
                     <div className="col-span-1 flex flex-col border-r pr-4">
-                        <h4 className="font-semibold mb-2">Versions</h4>
+                        <h4 className="font-semibold mb-2">Versiones</h4>
                         {loading ? <Loader2 className="animate-spin" /> : (
                             <ScrollArea className="flex-1">
                                 <div className="flex flex-col gap-1">
@@ -83,7 +81,7 @@ function HistoryDialog({ pageId }: { pageId: string }) {
                                     >
                                         <div className="text-left">
                                             <p className="font-semibold">{format(version.updatedAt.toDate(), 'PPP p')}</p>
-                                            <p className="text-xs text-muted-foreground">by {version.lastEditedBy.displayName || 'System'}</p>
+                                            <p className="text-xs text-muted-foreground">por {version.lastEditedBy.displayName || 'Sistema'}</p>
                                         </div>
                                     </Button>
                                 ))}
@@ -93,7 +91,7 @@ function HistoryDialog({ pageId }: { pageId: string }) {
                     </div>
                     <div className="col-span-2 flex flex-col overflow-hidden">
                          <h4 className="font-semibold mb-2">
-                           Version Preview
+                           Vista Previa de la Versión
                          </h4>
                          <ScrollArea className="flex-1 border rounded-md bg-muted/50 p-4">
                             {selectedVersion ? (
@@ -103,7 +101,7 @@ function HistoryDialog({ pageId }: { pageId: string }) {
                                 </div>
                             ) : (
                                 <div className="flex items-center justify-center h-full text-muted-foreground">
-                                    <p>Select a version to preview its content.</p>
+                                    <p>Selecciona una versión para previsualizar su contenido.</p>
                                 </div>
                             )}
                          </ScrollArea>
@@ -130,11 +128,11 @@ export default function WikiArticlePage({ params }: { params: { slug: string } }
           if (pageData) {
             setPage(pageData);
           } else {
-            setError('Article not found.');
+            setError('Artículo no encontrado.');
           }
         } catch (e) {
           console.error(e);
-          setError('An error occurred while loading the article.');
+          setError('Ocurrió un error al cargar el artículo.');
         } finally {
           setLoading(false);
         }
@@ -168,7 +166,7 @@ export default function WikiArticlePage({ params }: { params: { slug: string } }
       <div className="flex items-center justify-between">
          <Button variant="outline" asChild>
             <Link href="/wiki">
-              &larr; Back to Wiki
+              &larr; Volver al Wiki
             </Link>
           </Button>
           <div className="flex items-center gap-2">
@@ -176,7 +174,7 @@ export default function WikiArticlePage({ params }: { params: { slug: string } }
              <Button asChild>
                  <Link href={`/wiki/edit/${page.id}`}>
                      <Edit className="mr-2"/>
-                     Edit Article
+                     Editar Artículo
                  </Link>
              </Button>
           </div>
@@ -185,7 +183,7 @@ export default function WikiArticlePage({ params }: { params: { slug: string } }
         <CardHeader>
           <CardTitle className="text-4xl font-bold">{page.title}</CardTitle>
           <CardDescription>
-            Last updated by {page.lastEditedBy?.displayName || 'System'} {page.updatedAt && formatDistanceToNow(page.updatedAt.toDate(), { addSuffix: true })}
+            Última actualización por {page.lastEditedBy?.displayName || 'Sistema'} {page.updatedAt && formatDistanceToNow(page.updatedAt.toDate(), { addSuffix: true, locale: es })}
           </CardDescription>
         </CardHeader>
         <CardContent>

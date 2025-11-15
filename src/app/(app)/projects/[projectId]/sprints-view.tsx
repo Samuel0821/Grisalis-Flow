@@ -49,7 +49,7 @@ function SprintCard({ sprint, tasks, onStatusChange }: { sprint: Sprint; tasks: 
             <CardTitle className="flex items-center justify-between">
                 <span>{sprint.name}</span>
                 <div className="flex items-center gap-2">
-                    <Badge variant={statusBadges[sprint.status]} className="capitalize">{sprint.status}</Badge>
+                    <Badge variant={statusBadges[sprint.status]} className="capitalize">{sprint.status === 'planning' ? 'Planificación' : sprint.status === 'active' ? 'Activo' : 'Completado'}</Badge>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
                         <Button variant="ghost" size="icon" className="h-8 w-8">
@@ -58,13 +58,13 @@ function SprintCard({ sprint, tasks, onStatusChange }: { sprint: Sprint; tasks: 
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
                         {sprint.status === 'planning' && (
-                            <DropdownMenuItem onClick={() => onStatusChange(sprint.id, 'active')}>Start Sprint</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => onStatusChange(sprint.id, 'active')}>Iniciar Sprint</DropdownMenuItem>
                         )}
                         {sprint.status === 'active' && (
-                            <DropdownMenuItem onClick={() => onStatusChange(sprint.id, 'completed')}>Complete Sprint</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => onStatusChange(sprint.id, 'completed')}>Completar Sprint</DropdownMenuItem>
                         )}
-                         <DropdownMenuItem disabled>Edit</DropdownMenuItem>
-                         <DropdownMenuItem disabled className="text-destructive">Delete</DropdownMenuItem>
+                         <DropdownMenuItem disabled>Editar</DropdownMenuItem>
+                         <DropdownMenuItem disabled className="text-destructive">Eliminar</DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
                 </div>
@@ -99,11 +99,9 @@ export function SprintsView({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
 
-  // Form state
   const [sprintName, setSprintName] = useState('');
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
   
-  // Update local state when initial sprints change from parent
   useState(() => {
     setSprints(initialSprints)
   }, [initialSprints]);
@@ -116,11 +114,11 @@ export function SprintsView({
   const handleCreateSprint = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) {
-      toast({ variant: 'destructive', title: 'Not authenticated' });
+      toast({ variant: 'destructive', title: 'No autenticado' });
       return;
     }
     if (!sprintName.trim() || !dateRange?.from || !dateRange?.to) {
-      toast({ variant: 'destructive', title: 'Name and date range are required' });
+      toast({ variant: 'destructive', title: 'Nombre y rango de fechas son requeridos' });
       return;
     }
 
@@ -134,12 +132,12 @@ export function SprintsView({
         status: 'planning',
       }, { uid: user.uid, displayName: user.displayName });
       onSprintCreated(newSprint);
-      toast({ title: 'Success!', description: 'Sprint created.' });
+      toast({ title: '¡Éxito!', description: 'Sprint creado.' });
       resetForm();
       setIsCreateDialogOpen(false);
     } catch (error) {
       console.error(error);
-      toast({ variant: 'destructive', title: 'Error creating sprint' });
+      toast({ variant: 'destructive', title: 'Error al crear sprint' });
     } finally {
       setIsSubmitting(false);
     }
@@ -152,34 +150,34 @@ export function SprintsView({
           <DialogTrigger asChild>
             <Button>
               <PlusCircle className="mr-2" />
-              New Sprint
+              Nuevo Sprint
             </Button>
           </DialogTrigger>
           <DialogContent>
             <form onSubmit={handleCreateSprint}>
               <DialogHeader>
-                <DialogTitle>Create New Sprint</DialogTitle>
+                <DialogTitle>Crear Nuevo Sprint</DialogTitle>
                 <DialogDescription>
-                  Plan your next sprint by giving it a name and a date range.
+                  Planifica tu próximo sprint dándole un nombre y un rango de fechas.
                 </DialogDescription>
               </DialogHeader>
               <div className="grid gap-4 py-4">
                 <div className="grid grid-cols-4 items-center gap-4">
                   <Label htmlFor="name" className="text-right">
-                    Name
+                    Nombre
                   </Label>
                   <Input
                     id="name"
                     value={sprintName}
                     onChange={(e) => setSprintName(e.target.value)}
                     className="col-span-3"
-                    placeholder="E.g., Q3 Final Push"
+                    placeholder="Ej: Empuje final Q3"
                     disabled={isSubmitting}
                   />
                 </div>
                 <div className="grid grid-cols-4 items-center gap-4">
                   <Label htmlFor="date-range" className="text-right">
-                    Date Range
+                    Rango de Fechas
                   </Label>
                    <Popover>
                     <PopoverTrigger asChild>
@@ -202,7 +200,7 @@ export function SprintsView({
                             format(dateRange.from, "LLL dd, y")
                           )
                         ) : (
-                          <span>Pick a date range</span>
+                          <span>Elige un rango de fechas</span>
                         )}
                       </Button>
                     </PopoverTrigger>
@@ -220,15 +218,15 @@ export function SprintsView({
                 </div>
               </div>
               <DialogFooter>
-                <DialogClose asChild><Button variant="outline">Cancel</Button></DialogClose>
+                <DialogClose asChild><Button variant="outline">Cancelar</Button></DialogClose>
                 <Button type="submit" disabled={isSubmitting || !sprintName.trim() || !dateRange}>
                   {isSubmitting ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Creating...
+                      Creando...
                     </>
                   ) : (
-                    'Create Sprint'
+                    'Crear Sprint'
                   )}
                 </Button>
               </DialogFooter>
@@ -253,8 +251,8 @@ export function SprintsView({
             <div className="flex h-64 items-center justify-center text-center rounded-lg border border-dashed">
                 <div className="flex flex-col items-center gap-2 text-muted-foreground">
                     <Flag className="h-10 w-10" />
-                    <h2 className="text-lg font-semibold">No sprints yet</h2>
-                    <p className="text-sm">Create your first sprint to start organizing your work cycles.</p>
+                    <h2 className="text-lg font-semibold">Aún no hay sprints</h2>
+                    <p className="text-sm">Crea tu primer sprint para empezar a organizar tus ciclos de trabajo.</p>
                 </div>
             </div>
           )}

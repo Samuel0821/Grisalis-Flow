@@ -77,16 +77,15 @@ export default function ProjectDetailsPage() {
     const sprintToUpdate = sprints.find(s => s.id === sprintId);
     if (!sprintToUpdate) return;
     
-    // Optimistic UI update
     setSprints(prev => prev.map(s => s.id === sprintId ? {...s, status: newStatus} : s));
 
     try {
       await updateSprintStatus(sprintId, sprintToUpdate.name, newStatus, sprintToUpdate.status, { uid: user.uid, displayName: user.displayName });
-      toast({ title: 'Success', description: 'Sprint status updated.' });
+      toast({ title: 'Éxito', description: 'Estado del sprint actualizado.' });
     } catch (error) {
       console.error(error);
       setSprints(originalSprints);
-      toast({ variant: 'destructive', title: 'Error', description: 'Failed to update sprint status.' });
+      toast({ variant: 'destructive', title: 'Error', description: 'No se pudo actualizar el estado del sprint.' });
     }
   }, [sprints, user, toast]);
 
@@ -120,10 +119,10 @@ export default function ProjectDetailsPage() {
       
       <Tabs defaultValue="dashboard" className="flex-1 flex flex-col">
         <TabsList>
-          <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
+          <TabsTrigger value="dashboard">Panel</TabsTrigger>
           <TabsTrigger value="kanban">Kanban</TabsTrigger>
           <TabsTrigger value="sprints">Sprints</TabsTrigger>
-          <TabsTrigger value="settings">Settings</TabsTrigger>
+          <TabsTrigger value="settings">Configuración</TabsTrigger>
         </TabsList>
          <TabsContent value="dashboard" className="flex-1 mt-4">
            <ProjectDashboard project={project} tasks={tasks} members={members} sprints={initialSprints} />

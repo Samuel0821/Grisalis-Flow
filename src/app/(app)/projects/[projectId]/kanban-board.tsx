@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
@@ -38,6 +37,7 @@ import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { formatDistanceToNow } from 'date-fns';
+import { es } from 'date-fns/locale';
 import { useUser } from '@/firebase';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Progress } from '@/components/ui/progress';
@@ -49,11 +49,11 @@ type ColumnId = TaskStatus;
 
 const columns: { id: ColumnId; title: string }[] = [
   { id: 'backlog', title: 'Backlog' },
-  { id: 'todo', title: 'To-do' },
-  { id: 'in_progress', title: 'In Progress' },
-  { id: 'testing', title: 'Testing' },
-  { id: 'in_review', title: 'In Review' },
-  { id: 'done', title: 'Done' },
+  { id: 'todo', title: 'Por Hacer' },
+  { id: 'in_progress', title: 'En Progreso' },
+  { id: 'testing', title: 'En Pruebas' },
+  { id: 'in_review', title: 'En Revisión' },
+  { id: 'done', title: 'Hecho' },
 ];
 
 const priorityIcons: Record<TaskPriority, React.ReactNode> = {
@@ -132,7 +132,7 @@ function KanbanColumn({ title, tasks, subtasks, columnId, onTaskClick }: { title
             {provided.placeholder}
             {tasks.length === 0 && (
               <div className="flex justify-center items-center h-full text-sm text-muted-foreground p-4">
-                No tasks yet.
+                Aún no hay tareas.
               </div>
             )}
           </CardContent>
@@ -151,7 +151,6 @@ function TaskDetailDialog({ task, sprints, members, subtasks, isOpen, onOpenChan
     const [newSubtaskTitle, setNewSubtaskTitle] = useState('');
     const [isAddingSubtask, setIsAddingSubtask] = useState(false);
 
-    // Editable fields
     const [assigneeId, setAssigneeId] = useState(task?.assigneeId || 'none');
     const [sprintId, setSprintId] = useState(task?.sprintId || 'none');
     const [attachmentUrl, setAttachmentUrl] = useState(task?.attachmentUrl || '');
@@ -192,11 +191,11 @@ function TaskDetailDialog({ task, sprints, members, subtasks, isOpen, onOpenChan
 
         try {
             await updateTask(task.id, { [field]: value, title: task.title, projectId: task.projectId }, { uid: user.uid, displayName: user.displayName });
-            toast({ title: 'Task Updated', description: `Task ${field} has been updated.`});
+            toast({ title: 'Tarea Actualizada', description: `El campo '${field}' de la tarea ha sido actualizado.`});
         } catch (error) {
             console.error(error);
             onTaskUpdated({ id: task.id, [field]: originalValue });
-            toast({ variant: 'destructive', title: 'Error', description: 'Could not update task.' });
+            toast({ variant: 'destructive', title: 'Error', description: 'No se pudo actualizar la tarea.' });
         }
     };
 
@@ -208,14 +207,14 @@ function TaskDetailDialog({ task, sprints, members, subtasks, isOpen, onOpenChan
         try {
             await addComment(task.id, {
                 userId: user.uid,
-                userName: user.displayName || 'Anonymous',
+                userName: user.displayName || 'Anónimo',
                 userAvatar: user.photoURL || '',
                 text: newComment,
             });
             setNewComment('');
         } catch (error) {
             console.error(error);
-            toast({ variant: 'destructive', title: 'Error', description: 'Could not post comment.' });
+            toast({ variant: 'destructive', title: 'Error', description: 'No se pudo publicar el comentario.' });
         } finally {
             setIsSubmittingComment(false);
         }
@@ -232,7 +231,7 @@ function TaskDetailDialog({ task, sprints, members, subtasks, isOpen, onOpenChan
                 parentId: task.id,
                 title: newSubtaskTitle,
                 status: 'todo',
-                priority: task.priority, // Inherit priority
+                priority: task.priority,
                 type: 'subtask',
                 createdBy: user.uid,
             }, { uid: user.uid, displayName: user.displayName });
@@ -240,7 +239,7 @@ function TaskDetailDialog({ task, sprints, members, subtasks, isOpen, onOpenChan
             setNewSubtaskTitle('');
         } catch(error) {
             console.error(error);
-            toast({ variant: 'destructive', title: 'Error', description: 'Could not create subtask.' });
+            toast({ variant: 'destructive', title: 'Error', description: 'No se pudo crear la subtarea.' });
         } finally {
             setIsAddingSubtask(false);
         }
@@ -257,7 +256,7 @@ function TaskDetailDialog({ task, sprints, members, subtasks, isOpen, onOpenChan
             await updateTaskStatus(subtask.id, subtask.title, newStatus, oldStatus, { uid: user.uid, displayName: user.displayName });
         } catch (error) {
             onTaskUpdated({ id: subtask.id, status: oldStatus });
-            toast({ variant: 'destructive', title: 'Error', description: 'Could not update subtask status.' });
+            toast({ variant: 'destructive', title: 'Error', description: 'No se pudo actualizar el estado de la subtarea.' });
         }
     };
 
@@ -267,10 +266,10 @@ function TaskDetailDialog({ task, sprints, members, subtasks, isOpen, onOpenChan
         try {
             await deleteTask(subtask.id, subtask.title, { uid: user.uid, displayName: user.displayName });
             onSubtaskDeleted(subtask.id);
-            toast({ title: 'Subtask Deleted' });
+            toast({ title: 'Subtarea Eliminada' });
         } catch (error) {
             console.error(error);
-            toast({ variant: 'destructive', title: 'Error', description: 'Could not delete subtask.' });
+            toast({ variant: 'destructive', title: 'Error', description: 'No se pudo eliminar la subtarea.' });
         }
     }
 
@@ -286,9 +285,9 @@ function TaskDetailDialog({ task, sprints, members, subtasks, isOpen, onOpenChan
                         <DialogTitle>{task.title}</DialogTitle>
                     </div>
                     <DialogDescription>
-                        Status: <Badge variant="secondary" className="capitalize">{task.status.replace('_', ' ')}</Badge>
+                        Estado: <Badge variant="secondary" className="capitalize">{task.status.replace('_', ' ')}</Badge>
                         <span className="mx-2">·</span>
-                        Priority: <Badge variant={priorityBadges[task.priority]} className="capitalize">{task.priority}</Badge>
+                        Prioridad: <Badge variant={priorityBadges[task.priority]} className="capitalize">{task.priority}</Badge>
                     </DialogDescription>
                 </DialogHeader>
                 <div className="py-4 space-y-6 max-h-[60vh] overflow-y-auto pr-4">
@@ -297,10 +296,10 @@ function TaskDetailDialog({ task, sprints, members, subtasks, isOpen, onOpenChan
                             <Label className="font-semibold text-foreground mb-1">Sprint</Label>
                              <Select onValueChange={(val) => { setSprintId(val); handleFieldUpdate('sprintId', val === 'none' ? null : val); }} value={sprintId}>
                                 <SelectTrigger>
-                                    <SelectValue placeholder="Assign to a sprint" />
+                                    <SelectValue placeholder="Asignar a un sprint" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="none">No Sprint</SelectItem>
+                                    <SelectItem value="none">Sin Sprint</SelectItem>
                                     {sprints.filter(s => s.status !== 'completed').map(sprint => (
                                         <SelectItem key={sprint.id} value={sprint.id}>{sprint.name}</SelectItem>
                                     ))}
@@ -308,13 +307,13 @@ function TaskDetailDialog({ task, sprints, members, subtasks, isOpen, onOpenChan
                             </Select>
                         </div>
                          <div className="text-sm">
-                            <Label className="font-semibold text-foreground mb-1">Assignee</Label>
+                            <Label className="font-semibold text-foreground mb-1">Asignado a</Label>
                              <Select onValueChange={(val) => { setAssigneeId(val); handleFieldUpdate('assigneeId', val === 'none' ? null : val); }} value={assigneeId}>
                                 <SelectTrigger>
-                                    <SelectValue placeholder="Assign to a member" />
+                                    <SelectValue placeholder="Asignar a un miembro" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="none">Unassigned</SelectItem>
+                                    <SelectItem value="none">Sin Asignar</SelectItem>
                                     {members.map(member => (
                                         <SelectItem key={member.userId} value={member.userId}>{member.displayName}</SelectItem>
                                     ))}
@@ -324,18 +323,18 @@ function TaskDetailDialog({ task, sprints, members, subtasks, isOpen, onOpenChan
                     </div>
 
                     <div className="text-sm">
-                        <p className="font-semibold text-foreground mb-1">Description</p>
+                        <p className="font-semibold text-foreground mb-1">Descripción</p>
                         <div className="text-muted-foreground p-3 bg-muted rounded-md min-h-[60px]">
                             {task.description ? (
                                 <p className="whitespace-pre-wrap">{task.description}</p>
                             ) : (
-                                <p>No description provided.</p>
+                                <p>No se proporcionó descripción.</p>
                             )}
                         </div>
                     </div>
 
                     <div className="text-sm">
-                        <Label htmlFor="attachment" className="font-semibold text-foreground mb-1">Attachment</Label>
+                        <Label htmlFor="attachment" className="font-semibold text-foreground mb-1">Adjunto</Label>
                         <div className="flex items-center gap-2">
                              <LinkIcon className="h-4 w-4 text-muted-foreground" />
                              <Input
@@ -344,29 +343,28 @@ function TaskDetailDialog({ task, sprints, members, subtasks, isOpen, onOpenChan
                                 onChange={(e) => setAttachmentUrl(e.target.value)}
                                 onBlur={() => handleFieldUpdate('attachmentUrl', attachmentUrl)}
                                 className="flex-1"
-                                placeholder="https://example.com/file"
+                                placeholder="https://ejemplo.com/archivo"
                             />
                         </div>
                         {attachmentUrl && (
                             <div className="mt-2">
                                 {isImageUrl(attachmentUrl) ? (
                                     <div className="p-2 border rounded-md max-w-sm">
-                                        <Image src={attachmentUrl} alt="Attachment for task" width={500} height={300} className="rounded-md object-contain" />
+                                        <Image src={attachmentUrl} alt="Adjunto de la tarea" width={500} height={300} className="rounded-md object-contain" />
                                     </div>
                                 ) : (
                                     <Link href={attachmentUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-primary hover:underline">
-                                        View Attachment <ExternalLink className="h-4 w-4"/>
+                                        Ver Adjunto <ExternalLink className="h-4 w-4"/>
                                     </Link>
                                 )}
                             </div>
                         )}
                     </div>
 
-                    {/* Subtasks Section */}
                     <div className="space-y-2">
                         <h4 className="font-semibold text-foreground flex items-center gap-2">
                             <CheckSquare className="h-5 w-5"/>
-                            Subtasks
+                            Subtareas
                         </h4>
                         {relevantSubtasks.length > 0 && (
                             <div className='px-1'>
@@ -390,14 +388,14 @@ function TaskDetailDialog({ task, sprints, members, subtasks, isOpen, onOpenChan
                                         </AlertDialogTrigger>
                                         <AlertDialogContent>
                                             <AlertDialogHeader>
-                                                <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                                                <AlertDialogTitle>¿Estás seguro?</AlertDialogTitle>
                                                 <AlertDialogDescription>
-                                                   This will permanently delete the subtask "{st.title}". This action cannot be undone.
+                                                   Esto eliminará permanentemente la subtarea "{st.title}". Esta acción no se puede deshacer.
                                                 </AlertDialogDescription>
                                             </AlertDialogHeader>
                                             <AlertDialogFooter>
-                                                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                                <AlertDialogAction onClick={() => handleDeleteSubtask(st)} className="bg-destructive hover:bg-destructive/90">Delete</AlertDialogAction>
+                                                <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                                <AlertDialogAction onClick={() => handleDeleteSubtask(st)} className="bg-destructive hover:bg-destructive/90">Eliminar</AlertDialogAction>
                                             </AlertDialogFooter>
                                         </AlertDialogContent>
                                     </AlertDialog>
@@ -408,21 +406,20 @@ function TaskDetailDialog({ task, sprints, members, subtasks, isOpen, onOpenChan
                             <Input 
                                 value={newSubtaskTitle}
                                 onChange={e => setNewSubtaskTitle(e.target.value)}
-                                placeholder="Add a new subtask..."
+                                placeholder="Añadir una nueva subtarea..."
                                 className="h-9"
                                 disabled={isAddingSubtask}
                             />
                             <Button type="submit" size="sm" disabled={isAddingSubtask || !newSubtaskTitle.trim()}>
-                                {isAddingSubtask ? <Loader2 className="animate-spin" /> : "Add"}
+                                {isAddingSubtask ? <Loader2 className="animate-spin" /> : "Añadir"}
                             </Button>
                         </form>
                     </div>
 
-                    {/* Comments Section */}
                     <div className="space-y-4">
                         <h4 className="font-semibold text-foreground flex items-center gap-2">
                             <MessageSquare className="h-5 w-5"/>
-                            Comments
+                            Comentarios
                         </h4>
                         <div className="space-y-4">
                             {comments.map(comment => (
@@ -435,7 +432,7 @@ function TaskDetailDialog({ task, sprints, members, subtasks, isOpen, onOpenChan
                                         <div className="flex items-center gap-2">
                                             <span className="font-semibold text-sm">{comment.userName}</span>
                                             <span className="text-xs text-muted-foreground">
-                                                {comment.createdAt?.toDate && formatDistanceToNow(comment.createdAt.toDate(), { addSuffix: true })}
+                                                {comment.createdAt?.toDate && formatDistanceToNow(comment.createdAt.toDate(), { addSuffix: true, locale: es })}
                                             </span>
                                         </div>
                                         <p className="text-sm text-foreground bg-muted p-2 rounded-md mt-1">{comment.text}</p>
@@ -443,7 +440,7 @@ function TaskDetailDialog({ task, sprints, members, subtasks, isOpen, onOpenChan
                                 </div>
                             ))}
                              {comments.length === 0 && (
-                                <p className="text-sm text-muted-foreground text-center py-4">No comments yet. Be the first to comment!</p>
+                                <p className="text-sm text-muted-foreground text-center py-4">Aún no hay comentarios. ¡Sé el primero en comentar!</p>
                             )}
                         </div>
 
@@ -455,13 +452,13 @@ function TaskDetailDialog({ task, sprints, members, subtasks, isOpen, onOpenChan
                             <Textarea
                                 value={newComment}
                                 onChange={e => setNewComment(e.target.value)}
-                                placeholder="Write a comment..."
+                                placeholder="Escribe un comentario..."
                                 disabled={isSubmittingComment}
                                 className="flex-1"
                                 rows={2}
                             />
                             <Button type="submit" disabled={isSubmittingComment || !newComment.trim()}>
-                                {isSubmittingComment ? <Loader2 className="animate-spin" /> : "Post"}
+                                {isSubmittingComment ? <Loader2 className="animate-spin" /> : "Publicar"}
                             </Button>
                         </form>
                     </div>
@@ -484,7 +481,7 @@ export function KanbanBoard({ projectId, initialTasks, sprints, onTaskCreated, o
   const [newTaskTitle, setNewTaskTitle] = useState('');
   const [newTaskDescription, setNewTaskDescription] = useState('');
   const [newTaskPriority, setNewTaskPriority] = useState<TaskPriority>('medium');
-  const [newTaskSprintId, setNewTaskSprintId] = useState<string | undefined>();
+  const [newTaskSprintId, setNewTaskSprintId] = useState<string>('none');
   
   const [isBrowser, setIsBrowser] = useState(false);
   const [projectMembers, setProjectMembers] = useState<ProjectMember[]>([]);
@@ -514,17 +511,17 @@ export function KanbanBoard({ projectId, initialTasks, sprints, onTaskCreated, o
     setNewTaskTitle('');
     setNewTaskDescription('');
     setNewTaskPriority('medium');
-    setNewTaskSprintId(undefined);
+    setNewTaskSprintId('none');
   }
 
   const handleCreateTask = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) {
-      toast({ variant: 'destructive', title: 'Not authenticated' });
+      toast({ variant: 'destructive', title: 'No autenticado' });
       return;
     }
     if (!newTaskTitle.trim()) {
-      toast({ variant: 'destructive', title: 'Title is required' });
+      toast({ variant: 'destructive', title: 'El título es obligatorio' });
       return;
     }
 
@@ -546,12 +543,12 @@ export function KanbanBoard({ projectId, initialTasks, sprints, onTaskCreated, o
       
       const newTask = await createTask(taskData, { uid: user.uid, displayName: user.displayName });
       onTaskCreated(newTask);
-      toast({ title: 'Success!', description: 'Task created.' });
+      toast({ title: '¡Éxito!', description: 'Tarea creada.' });
       resetCreateForm();
       setIsCreateDialogOpen(false);
     } catch (error) {
       console.error(error);
-      toast({ variant: 'destructive', title: 'Error creating task' });
+      toast({ variant: 'destructive', title: 'Error al crear tarea' });
     } finally {
       setIsSubmitting(false);
     }
@@ -574,27 +571,24 @@ export function KanbanBoard({ projectId, initialTasks, sprints, onTaskCreated, o
     const oldStatus = movedTask.status;
     const newStatus = destination.droppableId as Task['status'];
     
-    // Optimistic UI update
     onTaskUpdated({ id: draggableId, status: newStatus });
     
     try {
       await updateTaskStatus(draggableId, movedTask.title, newStatus, oldStatus, { uid: user.uid, displayName: user.displayName });
     } catch (error) {
       console.error(error);
-      toast({ variant: 'destructive', title: 'Error updating task' });
-      // Revert UI on failure
+      toast({ variant: 'destructive', title: 'Error al actualizar tarea' });
       onTaskUpdated({ id: draggableId, status: oldStatus });
     }
   };
 
   const handleInternalTaskUpdate = (updatedTask: Partial<Task> & {id: string}) => {
-    // This is called from the TaskDetailDialog to keep local state in sync
     setSelectedTask(prev => prev ? { ...prev, ...updatedTask } : null);
     onTaskUpdated(updatedTask);
   }
 
   const handleSubtaskCreated = (newSubtask: Task) => {
-    onTaskCreated(newSubtask); // Use the main callback to add it to the global state
+    onTaskCreated(newSubtask);
   };
 
   const handleSubtaskDeleted = (subtaskId: string) => {
@@ -603,7 +597,7 @@ export function KanbanBoard({ projectId, initialTasks, sprints, onTaskCreated, o
 
 
   if (!isBrowser) {
-    return null; // Don't render DND on server
+    return null;
   }
 
   return (
@@ -614,56 +608,56 @@ export function KanbanBoard({ projectId, initialTasks, sprints, onTaskCreated, o
             <DialogTrigger asChild>
               <Button>
                 <PlusCircle className="mr-2" />
-                New Task
+                Nueva Tarea
               </Button>
             </DialogTrigger>
             <DialogContent>
               <form onSubmit={handleCreateTask}>
                 <DialogHeader>
-                  <DialogTitle>Create New Task</DialogTitle>
+                  <DialogTitle>Crear Nueva Tarea</DialogTitle>
                   <DialogDescription>
-                    Fill in the details for your new task.
+                    Rellena los detalles para tu nueva tarea.
                   </DialogDescription>
                 </DialogHeader>
                 <div className="grid gap-4 py-4">
                   <div className="grid grid-cols-4 items-center gap-4">
                     <Label htmlFor="title" className="text-right">
-                      Title
+                      Título
                     </Label>
                     <Input
                       id="title"
                       value={newTaskTitle}
                       onChange={(e) => setNewTaskTitle(e.target.value)}
                       className="col-span-3"
-                      placeholder="E.g., Implement login page"
+                      placeholder="Ej: Implementar página de login"
                       disabled={isSubmitting}
                     />
                   </div>
                   <div className="grid grid-cols-4 items-center gap-4">
                     <Label htmlFor="description" className="text-right">
-                      Description
+                      Descripción
                     </Label>
                     <Textarea
                       id="description"
                       value={newTaskDescription}
                       onChange={(e) => setNewTaskDescription(e.target.value)}
                       className="col-span-3"
-                      placeholder="Describe the task in more detail."
+                      placeholder="Describe la tarea con más detalle."
                       disabled={isSubmitting}
                     />
                   </div>
                    <div className="grid grid-cols-4 items-center gap-4">
                     <Label htmlFor="priority" className="text-right">
-                      Priority
+                      Prioridad
                     </Label>
                     <Select onValueChange={(value) => setNewTaskPriority(value as TaskPriority)} defaultValue="medium" disabled={isSubmitting}>
                         <SelectTrigger className="col-span-3">
-                            <SelectValue placeholder="Select priority" />
+                            <SelectValue placeholder="Selecciona prioridad" />
                         </SelectTrigger>
                         <SelectContent>
-                            <SelectItem value="low">Low</SelectItem>
-                            <SelectItem value="medium">Medium</SelectItem>
-                            <SelectItem value="high">High</SelectItem>
+                            <SelectItem value="low">Baja</SelectItem>
+                            <SelectItem value="medium">Media</SelectItem>
+                            <SelectItem value="high">Alta</SelectItem>
                         </SelectContent>
                     </Select>
                   </div>
@@ -673,10 +667,10 @@ export function KanbanBoard({ projectId, initialTasks, sprints, onTaskCreated, o
                     </Label>
                     <Select onValueChange={setNewTaskSprintId} value={newTaskSprintId} disabled={isSubmitting}>
                         <SelectTrigger className="col-span-3">
-                            <SelectValue placeholder="Assign to a sprint (optional)" />
+                            <SelectValue placeholder="Asignar a un sprint (opcional)" />
                         </SelectTrigger>
                         <SelectContent>
-                            <SelectItem value="none">No Sprint</SelectItem>
+                            <SelectItem value="none">Sin Sprint</SelectItem>
                             {sprints.filter(s => s.status !== 'completed').map(sprint => (
                                 <SelectItem key={sprint.id} value={sprint.id}>{sprint.name}</SelectItem>
                             ))}
@@ -689,10 +683,10 @@ export function KanbanBoard({ projectId, initialTasks, sprints, onTaskCreated, o
                     {isSubmitting ? (
                       <>
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Creating...
+                        Creando...
                       </>
                     ) : (
-                      'Create Task'
+                      'Crear Tarea'
                     )}
                   </Button>
                 </DialogFooter>

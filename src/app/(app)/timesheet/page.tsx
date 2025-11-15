@@ -37,8 +37,8 @@ export default function TimesheetPage() {
           console.error('Error fetching data:', error);
           toast({
             variant: 'destructive',
-            title: 'Error loading data',
-            description: 'Could not load timesheet data.',
+            title: 'Error al cargar datos',
+            description: 'No se pudieron cargar los datos de la hoja de tiempo.',
           });
         } finally {
           setIsLoading(false);
@@ -55,8 +55,8 @@ export default function TimesheetPage() {
   return (
     <div className="flex flex-col gap-8">
       <div className="flex flex-col gap-2">
-        <h1 className="font-headline text-3xl font-bold tracking-tight">Timesheet</h1>
-        <p className="text-muted-foreground">Log and report work hours.</p>
+        <h1 className="font-headline text-3xl font-bold tracking-tight">Hoja de Horas</h1>
+        <p className="text-muted-foreground">Registra e informa las horas de trabajo.</p>
       </div>
 
       {isLoading ? (

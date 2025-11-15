@@ -15,6 +15,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { formatDistanceToNow } from 'date-fns';
+import { es } from 'date-fns/locale';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 export default function AuditLogPage() {
@@ -39,8 +40,8 @@ export default function AuditLogPage() {
           console.error('Error fetching audit logs:', error);
           toast({
             variant: 'destructive',
-            title: 'Error loading audit logs',
-            description: 'Could not load audit log data.',
+            title: 'Error al cargar los registros',
+            description: 'No se pudieron cargar los datos de auditoría.',
           });
         } finally {
           setIsLoading(false);
@@ -63,11 +64,11 @@ export default function AuditLogPage() {
         <Card className="w-full max-w-md mx-auto">
             <CardHeader className="text-center">
                 <ShieldAlert className="mx-auto h-12 w-12 text-destructive" />
-                <CardTitle className="mt-4">Access Denied</CardTitle>
+                <CardTitle className="mt-4">Acceso Denegado</CardTitle>
             </CardHeader>
             <CardContent>
                 <p className="text-center text-muted-foreground">
-                    You do not have the required permissions to view this page. Please contact an administrator if you believe this is an error.
+                    No tienes los permisos necesarios para ver esta página. Por favor, contacta a un administrador si crees que esto es un error.
                 </p>
             </CardContent>
         </Card>
@@ -77,17 +78,17 @@ export default function AuditLogPage() {
   return (
     <div className="flex flex-col gap-8">
       <div className="flex flex-col gap-2">
-        <h1 className="font-headline text-3xl font-bold tracking-tight">Audit Log</h1>
-        <p className="text-muted-foreground">Track important events and changes in the system. Only visible to Admins.</p>
+        <h1 className="font-headline text-3xl font-bold tracking-tight">Registro de Auditoría</h1>
+        <p className="text-muted-foreground">Rastrea eventos y cambios importantes en el sistema. Solo visible para Administradores.</p>
       </div>
         <div className="border rounded-lg">
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Action</TableHead>
-              <TableHead>User</TableHead>
-              <TableHead>Entity</TableHead>
-              <TableHead>Timestamp</TableHead>
+              <TableHead>Acción</TableHead>
+              <TableHead>Usuario</TableHead>
+              <TableHead>Entidad</TableHead>
+              <TableHead>Fecha</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -99,7 +100,7 @@ export default function AuditLogPage() {
                     <TableCell>{log.userName}</TableCell>
                     <TableCell className="capitalize">{log.entity}: <span className="text-muted-foreground text-xs font-mono">{log.entityId}</span></TableCell>
                     <TableCell>
-                      {log.timestamp?.toDate && formatDistanceToNow(log.timestamp.toDate(), { addSuffix: true })}
+                      {log.timestamp?.toDate && formatDistanceToNow(log.timestamp.toDate(), { addSuffix: true, locale: es })}
                     </TableCell>
                   </TableRow>
                 );
@@ -107,7 +108,7 @@ export default function AuditLogPage() {
             ) : (
               <TableRow>
                 <TableCell colSpan={4} className="h-24 text-center">
-                  No audit logs found.
+                  No se encontraron registros de auditoría.
                 </TableCell>
               </TableRow>
             )}

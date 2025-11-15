@@ -14,6 +14,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { Loader2, Clock } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
+import { es } from 'date-fns/locale';
 
 export function TimesheetLogger({
   projects,
@@ -51,17 +52,17 @@ export function TimesheetLogger({
   const handleLogTime = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) {
-      toast({ variant: 'destructive', title: 'Not authenticated' });
+      toast({ variant: 'destructive', title: 'No autenticado' });
       return;
     }
     if (!selectedProjectId || !selectedTaskId || !hours) {
-      toast({ variant: 'destructive', title: 'Project, Task, and Hours are required' });
+      toast({ variant: 'destructive', title: 'Proyecto, Tarea y Horas son campos requeridos' });
       return;
     }
 
     const hoursNumber = parseFloat(hours);
     if (isNaN(hoursNumber) || hoursNumber <= 0) {
-      toast({ variant: 'destructive', title: 'Invalid hours', description: 'Please enter a positive number for hours.' });
+      toast({ variant: 'destructive', title: 'Horas inválidas', description: 'Por favor, introduce un número positivo para las horas.' });
       return;
     }
 
@@ -76,14 +77,14 @@ export function TimesheetLogger({
       } as Omit<TimeLog, 'id' | 'date'>);
       onTimeLogCreated(newLog);
       setTimeLogs(prev => [newLog, ...prev]);
-      toast({ title: 'Success!', description: 'Your time has been logged.' });
+      toast({ title: '¡Éxito!', description: 'Tu tiempo ha sido registrado.' });
       resetForm();
     } catch (error) {
       console.error('Error logging time:', error);
       toast({
         variant: 'destructive',
-        title: 'Error logging time',
-        description: 'Could not log your time. Please try again.',
+        title: 'Error al registrar tiempo',
+        description: 'No se pudo registrar tu tiempo. Por favor, inténtalo de nuevo.',
       });
     } finally {
       setIsSubmitting(false);
@@ -95,15 +96,15 @@ export function TimesheetLogger({
       <Card>
         <form onSubmit={handleLogTime}>
           <CardHeader>
-            <CardTitle>Log Work Hours</CardTitle>
-            <CardDescription>Select a task and enter the hours worked.</CardDescription>
+            <CardTitle>Registrar Horas de Trabajo</CardTitle>
+            <CardDescription>Selecciona una tarea e introduce las horas trabajadas.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="project">Project</Label>
+              <Label htmlFor="project">Proyecto</Label>
               <Select onValueChange={setSelectedProjectId} value={selectedProjectId} disabled={isSubmitting}>
                 <SelectTrigger id="project">
-                  <SelectValue placeholder="Select a project" />
+                  <SelectValue placeholder="Selecciona un proyecto" />
                 </SelectTrigger>
                 <SelectContent>
                   {projects.map((p) => (
@@ -115,26 +116,26 @@ export function TimesheetLogger({
               </Select>
             </div>
              <div className="space-y-2">
-              <Label htmlFor="task">Task</Label>
+              <Label htmlFor="task">Tarea</Label>
               <Select onValueChange={setSelectedTaskId} value={selectedTaskId} disabled={!selectedProjectId || isSubmitting}>
                 <SelectTrigger id="task">
-                  <SelectValue placeholder="Select a task" />
+                  <SelectValue placeholder="Selecciona una tarea" />
                 </SelectTrigger>
                 <SelectContent>
                    {availableTasks.length > 0 ? availableTasks.map((t) => (
                     <SelectItem key={t.id} value={t.id!}>
                       {t.title}
                     </SelectItem>
-                  )) : <p className="text-sm text-muted-foreground p-2">No tasks in this project.</p>}
+                  )) : <p className="text-sm text-muted-foreground p-2">No hay tareas en este proyecto.</p>}
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-2">
-                <Label htmlFor="hours">Hours</Label>
+                <Label htmlFor="hours">Horas</Label>
                 <Input
                     id="hours"
                     type="number"
-                    placeholder="E.g., 2.5"
+                    placeholder="Ej: 2.5"
                     value={hours}
                     onChange={(e) => setHours(e.target.value)}
                     disabled={isSubmitting}
@@ -143,10 +144,10 @@ export function TimesheetLogger({
                 />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="log-description">Description (Optional)</Label>
+              <Label htmlFor="log-description">Descripción (Opcional)</Label>
               <Textarea
                 id="log-description"
-                placeholder="What did you work on?"
+                placeholder="¿En qué trabajaste?"
                 value={logDescription}
                 onChange={(e) => setLogDescription(e.target.value)}
                 disabled={isSubmitting}
@@ -158,12 +159,12 @@ export function TimesheetLogger({
               {isSubmitting ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Logging...
+                  Registrando...
                 </>
               ) : (
                  <>
                   <Clock className="mr-2 h-4 w-4" />
-                  Log Time
+                  Registrar Tiempo
                 </>
               )}
             </Button>
@@ -173,18 +174,18 @@ export function TimesheetLogger({
       
       <Card>
          <CardHeader>
-            <CardTitle>My Time Logs</CardTitle>
-            <CardDescription>A list of your recent time entries.</CardDescription>
+            <CardTitle>Mis Registros de Tiempo</CardTitle>
+            <CardDescription>Una lista de tus entradas de tiempo recientes.</CardDescription>
           </CardHeader>
           <CardContent>
              <div className="border rounded-lg">
                 <Table>
                 <TableHeader>
                     <TableRow>
-                    <TableHead>Task</TableHead>
-                    <TableHead>Project</TableHead>
-                    <TableHead className="text-right">Hours</TableHead>
-                    <TableHead>Date</TableHead>
+                    <TableHead>Tarea</TableHead>
+                    <TableHead>Proyecto</TableHead>
+                    <TableHead className="text-right">Horas</TableHead>
+                    <TableHead>Fecha</TableHead>
                     </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -197,14 +198,14 @@ export function TimesheetLogger({
                             <TableCell className="font-medium">{task?.title || 'N/A'}</TableCell>
                             <TableCell>{project?.name || 'N/A'}</TableCell>
                             <TableCell className="text-right">{log.hours}</TableCell>
-                            <TableCell>{log.date?.toDate && format(log.date.toDate(), 'PPP')}</TableCell>
+                            <TableCell>{log.date?.toDate && format(log.date.toDate(), 'PPP', { locale: es })}</TableCell>
                         </TableRow>
                         );
                     })
                     ) : (
                     <TableRow>
                         <TableCell colSpan={4} className="h-24 text-center">
-                        No time logged yet.
+                        Aún no se ha registrado tiempo.
                         </TableCell>
                     </TableRow>
                     )}

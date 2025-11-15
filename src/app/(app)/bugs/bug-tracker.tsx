@@ -36,6 +36,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { Loader2, PlusCircle, Link as LinkIcon, ExternalLink } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { formatDistanceToNow } from 'date-fns';
+import { es } from 'date-fns/locale';
 import Image from 'next/image';
 import Link from 'next/link';
 
@@ -102,11 +103,11 @@ export function BugTracker({
   const handleReportBug = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) {
-      toast({ variant: 'destructive', title: 'Not authenticated' });
+      toast({ variant: 'destructive', title: 'No autenticado' });
       return;
     }
     if (!title.trim() || !projectId) {
-      toast({ variant: 'destructive', title: 'Title and Project are required' });
+      toast({ variant: 'destructive', title: 'Título y Proyecto son requeridos' });
       return;
     }
 
@@ -123,17 +124,17 @@ export function BugTracker({
         status: 'new',
         reportedBy: user.uid,
       }, { uid: user.uid, displayName: user.displayName });
-      onBugCreated(newBug); // Update parent state
-      setBugs((prev) => [newBug, ...prev]); // Update local state
-      toast({ title: 'Success!', description: 'The bug has been reported.' });
+      onBugCreated(newBug);
+      setBugs((prev) => [newBug, ...prev]);
+      toast({ title: '¡Éxito!', description: 'El bug ha sido reportado.' });
       resetForm();
       setIsCreateDialogOpen(false);
     } catch (error) {
       console.error('Error reporting bug:', error);
       toast({
         variant: 'destructive',
-        title: 'Error reporting bug',
-        description: 'Could not report the bug. Please try again.',
+        title: 'Error al reportar bug',
+        description: 'No se pudo reportar el bug. Por favor, inténtalo de nuevo.',
       });
     } finally {
       setIsSubmitting(false);
@@ -148,7 +149,6 @@ export function BugTracker({
   const handleStatusChange = async (newStatus: BugStatus) => {
     if (!selectedBug || !user) return;
 
-    // Optimistic update
     const originalBugs = bugs;
     const oldStatus = selectedBug.status;
     const updatedBugs = bugs.map(b => b.id === selectedBug.id ? { ...b, status: newStatus } : b);
@@ -157,15 +157,15 @@ export function BugTracker({
 
     try {
       await updateBugStatus(selectedBug.id, selectedBug.title, newStatus, oldStatus, { uid: user.uid, displayName: user.displayName });
-      toast({ title: 'Success!', description: 'Bug status updated.' });
+      toast({ title: '¡Éxito!', description: 'Estado del bug actualizado.' });
     } catch (error) {
       console.error('Error updating bug status:', error);
-      setBugs(originalBugs); // Revert on error
+      setBugs(originalBugs);
       setSelectedBug(prev => prev ? { ...prev, status: selectedBug.status } : null);
       toast({
         variant: 'destructive',
-        title: 'Error updating status',
-        description: 'Could not update the bug status. Please try again.',
+        title: 'Error al actualizar estado',
+        description: 'No se pudo actualizar el estado del bug. Por favor, inténtalo de nuevo.',
       });
     }
   };
@@ -181,62 +181,62 @@ export function BugTracker({
           <DialogTrigger asChild>
             <Button>
               <PlusCircle className="mr-2" />
-              Report New Bug
+              Reportar Nuevo Bug
             </Button>
           </DialogTrigger>
           <DialogContent className="sm:max-w-2xl">
             <form onSubmit={handleReportBug}>
               <DialogHeader>
-                <DialogTitle>Report New Bug</DialogTitle>
+                <DialogTitle>Reportar Nuevo Bug</DialogTitle>
                 <DialogDescription>
-                  Provide as much detail as possible to help us resolve the issue quickly.
+                  Proporciona tantos detalles como sea posible para ayudarnos a resolver el problema rápidamente.
                 </DialogDescription>
               </DialogHeader>
               <div className="grid gap-4 py-4">
                 <div className="grid grid-cols-4 items-center gap-4">
                   <Label htmlFor="title" className="text-right">
-                    Title
+                    Título
                   </Label>
                   <Input
                     id="title"
                     value={title}
                     onChange={(e) => setTitle(e.target.value)}
                     className="col-span-3"
-                    placeholder="E.g., Login button not working on mobile"
+                    placeholder="Ej: El botón de login no funciona en móvil"
                     disabled={isSubmitting}
                   />
                 </div>
                 <div className="grid grid-cols-4 items-start gap-4">
                   <Label htmlFor="description" className="text-right pt-2">
-                    Description
+                    Descripción
                   </Label>
                   <Textarea
                     id="description"
                     value={description}
                     onChange={(e) => setDescription(e.target.value)}
                     className="col-span-3"
-                    placeholder="Describe the bug and its impact."
+                    placeholder="Describe el bug y su impacto."
                     disabled={isSubmitting}
                     rows={3}
                   />
                 </div>
                  <div className="grid grid-cols-4 items-start gap-4">
                   <Label htmlFor="reproduction" className="text-right pt-2">
-                    Reproduction
+                    Reproducción
                   </Label>
                   <Textarea
                     id="reproduction"
                     value={reproductionSteps}
                     onChange={(e) => setReproductionSteps(e.target.value)}
                     className="col-span-3"
-                    placeholder="Describe the steps to reproduce the bug."
+                    placeholder="Describe los pasos para reproducir el bug."
                     disabled={isSubmitting}
                     rows={5}
                   />
                 </div>
                  <div className="grid grid-cols-4 items-center gap-4">
                   <Label htmlFor="evidence" className="text-right">
-                    Evidence URL
+                    URL de Evidencia
                   </Label>
                   <div className="col-span-3 flex items-center gap-2">
                      <LinkIcon className="h-4 w-4 text-muted-foreground" />
@@ -245,18 +245,18 @@ export function BugTracker({
                         value={evidenceUrl}
                         onChange={(e) => setEvidenceUrl(e.target.value)}
                         className="flex-1"
-                        placeholder="https://example.com/screenshot.png"
+                        placeholder="https://ejemplo.com/captura.png"
                         disabled={isSubmitting}
                     />
                   </div>
                 </div>
                 <div className="grid grid-cols-4 items-center gap-4">
                   <Label htmlFor="project" className="text-right">
-                    Project
+                    Proyecto
                   </Label>
                   <Select onValueChange={setProjectId} value={projectId} disabled={isSubmitting}>
                     <SelectTrigger className="col-span-3">
-                      <SelectValue placeholder="Select a project" />
+                      <SelectValue placeholder="Selecciona un proyecto" />
                     </SelectTrigger>
                     <SelectContent>
                       {projects.map((p) => (
@@ -269,34 +269,34 @@ export function BugTracker({
                 </div>
                 <div className="grid grid-cols-4 items-center gap-4">
                   <Label htmlFor="priority" className="text-right">
-                    Priority
+                    Prioridad
                   </Label>
                   <Select onValueChange={(v) => setPriority(v as BugPriority)} defaultValue="medium" disabled={isSubmitting}>
                     <SelectTrigger className="col-span-3">
-                      <SelectValue placeholder="Select priority" />
+                      <SelectValue placeholder="Selecciona prioridad" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="low">Low</SelectItem>
-                      <SelectItem value="medium">Medium</SelectItem>
-                      <SelectItem value="high">High</SelectItem>
-                      <SelectItem value="critical">Critical</SelectItem>
+                      <SelectItem value="low">Baja</SelectItem>
+                      <SelectItem value="medium">Media</SelectItem>
+                      <SelectItem value="high">Alta</SelectItem>
+                      <SelectItem value="critical">Crítica</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
                 <div className="grid grid-cols-4 items-center gap-4">
                   <Label htmlFor="severity" className="text-right">
-                    Severity
+                    Severidad
                   </Label>
                   <Select onValueChange={(v) => setSeverity(v as BugSeverity)} defaultValue="medium" disabled={isSubmitting}>
                     <SelectTrigger className="col-span-3">
-                      <SelectValue placeholder="Select severity" />
+                      <SelectValue placeholder="Selecciona severidad" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="critical">Critical</SelectItem>
-                      <SelectItem value="high">High</SelectItem>
-                      <SelectItem value="medium">Medium</SelectItem>
-                      <SelectItem value="low">Low</SelectItem>
-                      <SelectItem value="enhancement">Enhancement</SelectItem>
+                      <SelectItem value="critical">Crítica</SelectItem>
+                      <SelectItem value="high">Alta</SelectItem>
+                      <SelectItem value="medium">Media</SelectItem>
+                      <SelectItem value="low">Baja</SelectItem>
+                      <SelectItem value="enhancement">Mejora</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -306,10 +306,10 @@ export function BugTracker({
                   {isSubmitting ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Reporting...
+                      Reportando...
                     </>
                   ) : (
-                    'Report Bug'
+                    'Reportar Bug'
                   )}
                 </Button>
               </DialogFooter>
@@ -322,11 +322,11 @@ export function BugTracker({
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Title</TableHead>
-              <TableHead>Severity</TableHead>
-              <TableHead>Priority</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Reported</TableHead>
+              <TableHead>Título</TableHead>
+              <TableHead>Severidad</TableHead>
+              <TableHead>Prioridad</TableHead>
+              <TableHead>Estado</TableHead>
+              <TableHead>Reportado</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -336,7 +336,7 @@ export function BugTracker({
                   <TableRow key={bug.id} onClick={() => handleBugClick(bug)} className="cursor-pointer">
                     <TableCell className="font-medium">{bug.title}</TableCell>
                     <TableCell>
-                      <Badge variant={severityBadges[bug.severity]} className="capitalize">{bug.severity}</Badge>
+                      <Badge variant={severityBadges[bug.severity]} className="capitalize">{bug.severity === 'enhancement' ? 'Mejora' : bug.severity}</Badge>
                     </TableCell>
                     <TableCell>
                       <Badge variant={priorityBadges[bug.priority]} className="capitalize">{bug.priority}</Badge>
@@ -345,7 +345,7 @@ export function BugTracker({
                         <Badge variant={statusBadges[bug.status]} className="capitalize">{bug.status.replace('_', ' ')}</Badge>
                     </TableCell>
                     <TableCell>
-                      {bug.createdAt?.toDate && formatDistanceToNow(bug.createdAt.toDate(), { addSuffix: true })}
+                      {bug.createdAt?.toDate && formatDistanceToNow(bug.createdAt.toDate(), { addSuffix: true, locale: es })}
                     </TableCell>
                   </TableRow>
                 );
@@ -353,7 +353,7 @@ export function BugTracker({
             ) : (
               <TableRow>
                 <TableCell colSpan={5} className="h-24 text-center">
-                  No bugs reported yet.
+                  Aún no se han reportado bugs.
                 </TableCell>
               </TableRow>
             )}
@@ -368,42 +368,42 @@ export function BugTracker({
               <DialogHeader>
                  <DialogTitle>{selectedBug.title}</DialogTitle>
                 <DialogDescription>
-                  Reported {selectedBug.createdAt?.toDate && formatDistanceToNow(selectedBug.createdAt.toDate(), { addSuffix: true })}
+                  Reportado {selectedBug.createdAt?.toDate && formatDistanceToNow(selectedBug.createdAt.toDate(), { addSuffix: true, locale: es })}
                 </DialogDescription>
               </DialogHeader>
               <div className="py-4 space-y-6">
                  <div className="text-sm">
-                    <p className="font-semibold text-foreground mb-1">Description</p>
+                    <p className="font-semibold text-foreground mb-1">Descripción</p>
                     <div className="text-muted-foreground p-3 bg-muted rounded-md min-h-[80px]">
                       {selectedBug.description ? (
                           <p className="whitespace-pre-wrap">{selectedBug.description}</p>
                       ) : (
-                          <p>No description provided.</p>
+                          <p>No se proporcionó descripción.</p>
                       )}
                     </div>
                 </div>
 
                 <div className="text-sm">
-                    <p className="font-semibold text-foreground mb-1">Reproduction Steps</p>
+                    <p className="font-semibold text-foreground mb-1">Pasos de Reproducción</p>
                     <div className="text-muted-foreground p-3 bg-muted rounded-md min-h-[100px]">
                       {selectedBug.reproductionSteps ? (
                           <p className="whitespace-pre-wrap">{selectedBug.reproductionSteps}</p>
                       ) : (
-                          <p>No reproduction steps provided.</p>
+                          <p>No se proporcionaron pasos de reproducción.</p>
                       )}
                     </div>
                 </div>
                 
                 {selectedBug.evidenceUrl && (
                     <div className="text-sm">
-                        <p className="font-semibold text-foreground mb-1">Evidence</p>
+                        <p className="font-semibold text-foreground mb-1">Evidencia</p>
                          {isImageUrl(selectedBug.evidenceUrl) ? (
                             <div className="p-2 border rounded-md">
-                                <Image src={selectedBug.evidenceUrl} alt="Evidence for bug" width={500} height={300} className="rounded-md object-contain" />
+                                <Image src={selectedBug.evidenceUrl} alt="Evidencia del bug" width={500} height={300} className="rounded-md object-contain" />
                             </div>
                         ) : (
                              <Link href={selectedBug.evidenceUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-primary hover:underline">
-                                View Evidence <ExternalLink className="h-4 w-4"/>
+                                Ver Evidencia <ExternalLink className="h-4 w-4"/>
                              </Link>
                         )}
                     </div>
@@ -411,32 +411,32 @@ export function BugTracker({
 
                 <div className="grid grid-cols-3 gap-4">
                   <div>
-                    <Label className="font-semibold text-foreground mb-1">Project</Label>
+                    <Label className="font-semibold text-foreground mb-1">Proyecto</Label>
                     <p className="text-sm text-muted-foreground">{projects.find(p => p.id === selectedBug.projectId)?.name || 'N/A'}</p>
                   </div>
                   <div>
-                    <Label className="font-semibold text-foreground mb-1">Severity</Label>
+                    <Label className="font-semibold text-foreground mb-1">Severidad</Label>
                      <div>
-                       <Badge variant={severityBadges[selectedBug.severity]} className="capitalize text-sm">{selectedBug.severity}</Badge>
+                       <Badge variant={severityBadges[selectedBug.severity]} className="capitalize text-sm">{selectedBug.severity === 'enhancement' ? 'Mejora' : selectedBug.severity}</Badge>
                      </div>
                   </div>
                    <div>
-                    <Label className="font-semibold text-foreground mb-1">Priority</Label>
+                    <Label className="font-semibold text-foreground mb-1">Prioridad</Label>
                      <div>
                        <Badge variant={priorityBadges[selectedBug.priority]} className="capitalize text-sm">{selectedBug.priority}</Badge>
                      </div>
                   </div>
                    <div className="col-span-3">
-                    <Label htmlFor="status-select" className="font-semibold text-foreground mb-1">Status</Label>
+                    <Label htmlFor="status-select" className="font-semibold text-foreground mb-1">Estado</Label>
                     <Select onValueChange={(v) => handleStatusChange(v as BugStatus)} value={selectedBug.status}>
                       <SelectTrigger id="status-select" className="w-[180px]">
-                        <SelectValue placeholder="Select status" />
+                        <SelectValue placeholder="Selecciona estado" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="new">New</SelectItem>
-                        <SelectItem value="in_progress">In Progress</SelectItem>
-                        <SelectItem value="resolved">Resolved</SelectItem>
-                        <SelectItem value="closed">Closed</SelectItem>
+                        <SelectItem value="new">Nuevo</SelectItem>
+                        <SelectItem value="in_progress">En Progreso</SelectItem>
+                        <SelectItem value="resolved">Resuelto</SelectItem>
+                        <SelectItem value="closed">Cerrado</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -449,5 +449,3 @@ export function BugTracker({
     </div>
   );
 }
-
-    
