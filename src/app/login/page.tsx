@@ -52,7 +52,7 @@ export default function LoginPage() {
         }
     };
     checkUsers();
-  }, []);
+  }, [isSetupNeeded]);
 
   const handleSignIn = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -238,7 +238,7 @@ export default function LoginPage() {
           </CardContent>
            <CardFooter>
             <p className="text-xs text-muted-foreground text-center w-full">
-              Si aún no tienes asignado un usuario, comunicate con el administrador
+              si aún no tienen asignado un usuario, comunícate con el administrador
             </p>
           </CardFooter>
         </Card>
