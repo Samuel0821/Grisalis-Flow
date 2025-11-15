@@ -114,8 +114,11 @@ service cloud.firestore {
     }
 
     match /notifications/{notificationId} {
-        // Users can only interact with their own notifications. Admins can read all for auditing.
-        allow read, write: if isOwner(get(/databases/$(database)/documents/notifications/$(notificationId)).data.userId) || isAdmin();
+      // READ: Users can read their own notifications (list query), Admins can read any.
+      allow read: if (request.auth.uid == resource.data.userId) || isAdmin();
+      
+      // WRITE: Users can update their own notifications.
+      allow write: if (isOwner(get(/databases/$(database)/documents/notifications/$(notificationId)).data.userId)) || isAdmin();
     }
 
     match /auditLogs/{logId} {
