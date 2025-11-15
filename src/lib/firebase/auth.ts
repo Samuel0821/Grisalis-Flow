@@ -22,7 +22,6 @@ export const createUserWithEmailAndPassword = async (
   displayName: string,
   role: 'admin' | 'member' = 'member'
 ) => {
-    const setUserRoleCallable = httpsCallable(functions, 'setUserRole');
     const userCredential = await firebaseCreateUserWithEmailAndPassword(auth, email, password);
     const user = userCredential.user;
 
@@ -37,9 +36,11 @@ export const createUserWithEmailAndPassword = async (
 
     if (role === 'admin') {
         try {
+            const setUserRoleCallable = httpsCallable(functions, 'setUserRole');
             await setUserRoleCallable({ userId: user.uid, role: 'admin' });
         } catch(e) {
             console.error("Error setting admin role, maybe function is not deployed?", e);
+            // Optionally handle the error, e.g., by deleting the created user if setting the role is critical
         }
     }
     
