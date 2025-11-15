@@ -212,25 +212,14 @@ export const updateUserProfile = async (userId: string, data: Partial<Pick<UserP
 };
 
 
-export const deleteUserProfile = async (userId: string, admin: { uid: string, displayName: string | null }): Promise<void> => {
+export const deleteUserProfile = async (userId: string): Promise<void> => {
     try {
         const userProfileRef = doc(db, 'userProfiles', userId);
-        const userProfileSnap = await getDoc(userProfileRef);
-        const userProfile = userProfileSnap.data();
-
+        
         // This operation is protected by Firestore Security Rules.
         // It will only succeed if the requesting user is an admin.
         await deleteDoc(userProfileRef);
         
-        await createAuditLog({
-            userId: admin.uid,
-            userName: admin.displayName || 'Admin',
-            action: `Eliminó el perfil de usuario para ${userProfile?.displayName || userId}`,
-            entity: 'user',
-            entityId: userId,
-            details: {},
-        });
-
     } catch (error) {
         console.error("Error deleting user profile:", error);
         throw new Error("No se pudo eliminar el usuario.");

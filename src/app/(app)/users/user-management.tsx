@@ -55,6 +55,7 @@ import { Loader2, PlusCircle, MoreHorizontal, Edit, Trash2 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { getAuth } from 'firebase/auth';
 
 const roleBadges: Record<UserProfile['role'], 'destructive' | 'secondary'> = {
   admin: 'destructive',
@@ -114,26 +115,27 @@ export function UserManagement({
 
     setIsSubmitting(true);
     try {
-      const userCredential = await createUserWithEmailAndPassword(email, password, displayName, role);
+      const newUserProfile = await createUserWithEmailAndPassword(email, password, displayName, role);
+
+      // This is the important part: after creation, Firebase auto-signs in the new user.
+      // We must now sign the admin back in. The simplest way is to re-authenticate or,
+      // more robustly in a client-side scenario, reload the page to restore the admin's persisted session.
+
+      toast({ title: '¡Éxito!', description: `Usuario ${displayName} creado. Refrescando para restaurar sesión...` });
       
-      const newUserProfile: UserProfile = {
-        id: userCredential.user.uid,
-        email,
-        displayName,
-        role,
-        createdAt: new Date() as any, 
-      };
-
+      // We optimistically update the UI, then reload.
       onUserCreated(newUserProfile);
+      
+      // Wait a moment for the user to see the toast, then reload.
+      setTimeout(() => {
+        window.location.reload();
+      }, 1500);
 
-      toast({ title: '¡Éxito!', description: `Usuario ${displayName} creado.` });
-      resetCreateForm();
-      setIsCreateDialogOpen(false);
     } catch (error: any) {
       console.error('Error creating user:', error);
       let description = 'No se pudo crear el usuario. Por favor, inténtalo de nuevo.';
       if (error.code === 'auth/email-already-in-use') {
-        description = 'Este correo electrónico ya está en uso.';
+        description = 'Este correo electrónico ya está en uso. Si el usuario existe pero no aparece, puede que le falte un perfil en la base de datos.';
       } else if (error.code === 'auth/invalid-email') {
         description = 'El formato del correo electrónico no es válido.';
       }
@@ -142,15 +144,14 @@ export function UserManagement({
         title: 'Error al crear usuario',
         description,
       });
-    } finally {
-      setIsSubmitting(false);
+      setIsSubmitting(false); // Only set submitting to false on error. On success, page reloads.
     }
   };
 
   const handleDeleteUser = async (userToDelete: UserProfile) => {
     if (!adminUser) return;
     try {
-        await deleteUserProfile(userToDelete.id, { uid: adminUser.uid, displayName: adminUser.displayName });
+        await deleteUserProfile(userToDelete.id);
         setUsers(prev => prev.filter(u => u.id !== userToDelete.id));
         toast({ title: "Perfil de usuario eliminado", description: `${userToDelete.displayName} ha sido eliminado de la aplicación.`});
     } catch (error) {
