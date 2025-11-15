@@ -10,6 +10,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
+  DialogClose
 } from '@/components/ui/dialog';
 import {
   AlertDialog,
@@ -20,7 +21,6 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -46,7 +46,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Badge } from '@/components/ui/badge';
-import { UserProfile, deleteUserByAdmin } from '@/lib/firebase/firestore';
+import { UserProfile, deleteUserProfile, updateUserProfile } from '@/lib/firebase/firestore';
 import { createUserWithEmailAndPassword } from '@/lib/firebase/auth';
 import { useAuth } from '@/hooks/use-auth';
 import { Loader2, PlusCircle, MoreHorizontal, Edit, Trash2 } from 'lucide-react';
@@ -62,29 +62,35 @@ const roleBadges: Record<UserProfile['role'], 'destructive' | 'secondary'> = {
 export function UserManagement({
   initialUsers,
   onUserCreated,
-  onUsersReset,
 }: {
   initialUsers: UserProfile[];
   onUserCreated: (user: UserProfile) => void;
-  onUsersReset: () => void;
 }) {
   const { user: adminUser } = useAuth();
   const { toast } = useToast();
   const [users, setUsers] = useState<UserProfile[]>(initialUsers);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  
+  const [userToEdit, setUserToEdit] = useState<UserProfile | null>(null);
 
   useEffect(() => {
     setUsers(initialUsers);
   }, [initialUsers]);
 
-  // Form state
+  // Create form state
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [displayName, setDisplayName] = useState('');
   const [role, setRole] = useState<'admin' | 'member'>('member');
+  
+  // Edit form state
+  const [editDisplayName, setEditDisplayName] = useState('');
+  const [editRole, setEditRole] = useState<'admin' | 'member'>('member');
 
-  const resetForm = () => {
+
+  const resetCreateForm = () => {
     setEmail('');
     setPassword('');
     setDisplayName('');
@@ -118,7 +124,7 @@ export function UserManagement({
       onUserCreated(newUserProfile);
 
       toast({ title: '¡Éxito!', description: `Usuario ${displayName} creado.` });
-      resetForm();
+      resetCreateForm();
       setIsCreateDialogOpen(false);
     } catch (error: any) {
       console.error('Error creating user:', error);
@@ -139,13 +145,45 @@ export function UserManagement({
   };
 
   const handleDeleteUser = async (userToDelete: UserProfile) => {
+    if (!adminUser) return;
     try {
-        await deleteUserByAdmin(userToDelete.id);
+        await deleteUserProfile(userToDelete.id, { uid: adminUser.uid, displayName: adminUser.displayName });
         setUsers(prev => prev.filter(u => u.id !== userToDelete.id));
         toast({ title: "Usuario eliminado", description: `${userToDelete.displayName} ha sido eliminado del sistema.`});
     } catch (error) {
         console.error("Error deleting user:", error);
         toast({ variant: 'destructive', title: "Error", description: "No se pudo eliminar el usuario." });
+    }
+  }
+  
+  const openEditDialog = (user: UserProfile) => {
+    setUserToEdit(user);
+    setEditDisplayName(user.displayName || '');
+    setEditRole(user.role);
+    setIsEditDialogOpen(true);
+  }
+
+  const handleEditUser = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!userToEdit || !adminUser) return;
+
+    setIsSubmitting(true);
+    const updateData = {
+        displayName: editDisplayName,
+        role: editRole
+    };
+
+    try {
+        await updateUserProfile(userToEdit.id, updateData, { uid: adminUser.uid, displayName: adminUser.displayName });
+        setUsers(prev => prev.map(u => u.id === userToEdit.id ? { ...u, ...updateData } : u));
+        toast({ title: "Usuario actualizado", description: `Se han guardado los cambios para ${editDisplayName}.`});
+        setIsEditDialogOpen(false);
+        setUserToEdit(null);
+    } catch (error) {
+        console.error("Error updating user:", error);
+        toast({ variant: 'destructive', title: "Error", description: "No se pudo actualizar el usuario." });
+    } finally {
+        setIsSubmitting(false);
     }
   }
   
@@ -215,6 +253,7 @@ export function UserManagement({
                 </div>
               </div>
               <DialogFooter>
+                 <DialogClose asChild><Button type="button" variant="outline">Cancelar</Button></DialogClose>
                 <Button type="submit" disabled={isSubmitting}>
                   {isSubmitting ? (
                     <>
@@ -263,7 +302,7 @@ export function UserManagement({
                                 </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
-                                <DropdownMenuItem disabled>
+                                <DropdownMenuItem onClick={() => openEditDialog(u)}>
                                     <Edit className="mr-2 h-4 w-4" />
                                     Editar
                                 </DropdownMenuItem>
@@ -311,6 +350,56 @@ export function UserManagement({
           </TableBody>
         </Table>
       </div>
+
+       {/* Edit User Dialog */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <form onSubmit={handleEditUser}>
+            <DialogHeader>
+              <DialogTitle>Editar Usuario</DialogTitle>
+              <DialogDescription>
+                Modifica el nombre y el rol del usuario.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-4 py-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit-displayName">Nombre Completo</Label>
+                <Input
+                  id="edit-displayName"
+                  value={editDisplayName}
+                  onChange={(e) => setEditDisplayName(e.target.value)}
+                  disabled={isSubmitting}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-role">Rol</Label>
+                <Select onValueChange={(v) => setEditRole(v as 'admin' | 'member')} value={editRole} disabled={isSubmitting}>
+                  <SelectTrigger id="edit-role">
+                    <SelectValue placeholder="Selecciona un rol" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="member">Miembro</SelectItem>
+                    <SelectItem value="admin">Administrador</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <DialogFooter>
+              <DialogClose asChild><Button type="button" variant="outline">Cancelar</Button></DialogClose>
+              <Button type="submit" disabled={isSubmitting}>
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Guardando...
+                  </>
+                ) : (
+                  'Guardar Cambios'
+                )}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

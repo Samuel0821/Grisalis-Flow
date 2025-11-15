@@ -22,7 +22,6 @@ import {
   limit,
 } from 'firebase/firestore';
 import { initializeFirebase } from '@/firebase';
-import { getFunctions, httpsCallable } from 'firebase/functions';
 
 const { firestore: db, firebaseApp } = initializeFirebase();
 
@@ -193,19 +192,47 @@ export const getUserProfile = async (userId: string): Promise<UserProfile | null
     }
 }
 
-export const deleteUserByAdmin = async (userId: string): Promise<void> => {
+export const updateUserProfile = async (userId: string, data: Partial<Pick<UserProfile, 'displayName' | 'role'>>, admin: { uid: string, displayName: string | null }): Promise<void> => {
     try {
         const userProfileRef = doc(db, 'userProfiles', userId);
+        await updateDoc(userProfileRef, data);
+
+        await createAuditLog({
+            userId: admin.uid,
+            userName: admin.displayName || 'Admin',
+            action: `Actualizó el perfil del usuario ${data.displayName}`,
+            entity: 'user',
+            entityId: userId,
+            details: data,
+        });
+    } catch (error) {
+        console.error("Error updating user profile:", error);
+        throw new Error("No se pudo actualizar el perfil del usuario.");
+    }
+};
+
+
+export const deleteUserProfile = async (userId: string, admin: { uid: string, displayName: string | null }): Promise<void> => {
+    try {
+        const userProfileRef = doc(db, 'userProfiles', userId);
+        const userProfileSnap = await getDoc(userProfileRef);
+        const userProfile = userProfileSnap.data();
+
         // This operation is protected by Firestore Security Rules.
         // It will only succeed if the requesting user is an admin.
         await deleteDoc(userProfileRef);
-        // Note: This does NOT delete the user from Firebase Auth, only from the app's user list.
-        // This is a security measure to prevent client-side deletion of auth users without more complex server-side logic.
-        // The user will no longer be visible or able to log in effectively to the app's protected routes.
+        
+        await createAuditLog({
+            userId: admin.uid,
+            userName: admin.displayName || 'Admin',
+            action: `Eliminó el perfil de usuario para ${userProfile?.displayName || userId}`,
+            entity: 'user',
+            entityId: userId,
+            details: {},
+        });
+
     } catch (error) {
         console.error("Error deleting user profile:", error);
-        // The error will be caught by the caller and a toast will be shown.
-        // Re-throwing allows the caller to handle it.
         throw new Error("No se pudo eliminar el usuario.");
     }
 };
