@@ -14,7 +14,8 @@ import { initializeFirebase } from '@/firebase';
 import { doc, setDoc, serverTimestamp, getDocs, collection, writeBatch, query, where, deleteDoc as deleteFirestoreDoc } from 'firebase/firestore';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 
-const { firestore, auth } = initializeFirebase();
+const { firestore, auth, firebaseApp } = initializeFirebase();
+const functions = getFunctions(firebaseApp);
 
 export const createUserWithEmailAndPassword = async (
   email: string,
@@ -33,6 +34,11 @@ export const createUserWithEmailAndPassword = async (
         role: role,
         createdAt: serverTimestamp(),
     });
+
+    if (role === 'admin') {
+        const setUserRoleCallable = httpsCallable(functions, 'setUserRole');
+        await setUserRoleCallable({ userId: user.uid, role: 'admin' });
+    }
     
     return userCredential;
 }
@@ -50,7 +56,6 @@ export const onAuthStateChangedHelper = (callback: NextOrObserver<User>) => {
 }
 
 export const deleteAllOtherUsers = async (currentAdminId: string): Promise<string[]> => {
-    const functions = getFunctions(initializeFirebase().firebaseApp);
     const deleteUsersCallable = httpsCallable(functions, 'deleteUsers');
     
     try {

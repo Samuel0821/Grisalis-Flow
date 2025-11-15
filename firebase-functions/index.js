@@ -1,15 +1,10 @@
 
-const functions = require("firebase-functions");
-const { onCall } = require("firebase-functions/v2/https");
-const { initializeApp } = require("firebase-admin/app");
-const { getAuth } = require("firebase-admin/auth");
-const { getFirestore } = require("firebase-admin/firestore");
+const functions = require("firebase-functions/v2/https");
+const admin = require("firebase-admin");
 
-initializeApp();
+admin.initializeApp();
 
-exports.deleteUsers = onCall(async (request) => {
-  const { currentAdminId } = request.data;
-  
+exports.deleteUsers = functions.https.onCall(async (request) => {
   if (!request.auth) {
     throw new functions.https.HttpsError(
       "unauthenticated",
@@ -17,17 +12,17 @@ exports.deleteUsers = onCall(async (request) => {
     );
   }
 
-  // Verify the caller is an admin
-  const adminDoc = await getFirestore().collection("userProfiles").doc(request.auth.uid).get();
-  if (!adminDoc.exists || adminDoc.data().role !== "admin") {
-     throw new functions.https.HttpsError(
+  // Verify the caller is an admin using custom claims.
+  if (request.auth.token.admin !== true) {
+    throw new functions.httpss.HttpsError(
       "permission-denied",
       "Solo los administradores pueden ejecutar esta acción."
     );
   }
-
-  const auth = getAuth();
-  const firestore = getFirestore();
+  
+  const { currentAdminId } = request.data;
+  const auth = admin.auth();
+  const firestore = admin.firestore();
   
   const deletedUsers = [];
   const uidsToDelete = [];
@@ -44,10 +39,8 @@ exports.deleteUsers = onCall(async (request) => {
     });
 
     if (uidsToDelete.length > 0) {
-      // Delete from Firebase Auth (max 1000 at a time)
       await auth.deleteUsers(uidsToDelete);
 
-      // Delete from Firestore userProfiles collection
       const batch = firestore.batch();
       uidsToDelete.forEach(uid => {
         const docRef = firestore.collection("userProfiles").doc(uid);
@@ -63,10 +56,37 @@ exports.deleteUsers = onCall(async (request) => {
 
   } catch (error) {
     console.error("Error deleting users:", error);
-    throw new functions.https.HttpsError(
+    throw new functions.httpss.HttpsError(
       "internal",
       "Ocurrió un error al eliminar los usuarios.",
       error
     );
   }
+});
+
+exports.setUserRole = functions.https.onCall(async (request) => {
+    if (!request.auth || request.auth.token.admin !== true) {
+        throw new functions.https.HttpsError('permission-denied', 'Solo los administradores pueden establecer roles.');
+    }
+
+    const { userId, role } = request.data;
+    if (!userId || !role) {
+        throw new functions.https.HttpsError('invalid-argument', 'Se requieren `userId` y `role`.');
+    }
+
+    try {
+        if (role === 'admin') {
+            await admin.auth().setCustomUserClaims(userId, { admin: true });
+        } else {
+             await admin.auth().setCustomUserClaims(userId, { admin: false });
+        }
+        
+        // Also update the role in Firestore for consistency
+        await admin.firestore().collection('userProfiles').doc(userId).update({ role: role });
+
+        return { success: true, message: `Rol de ${userId} actualizado a ${role}.` };
+    } catch (error) {
+        console.error('Error al establecer el rol de usuario:', error);
+        throw new functions.https.HttpsError('internal', 'No se pudo establecer el rol de usuario.');
+    }
 });
