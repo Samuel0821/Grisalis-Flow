@@ -1,4 +1,3 @@
-
 'use client';
 
 import {
@@ -9,9 +8,11 @@ import {
   onAuthStateChanged,
   User,
   NextOrObserver,
+  deleteUser,
 } from 'firebase/auth';
 import { initializeFirebase } from '@/firebase';
-import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, setDoc, serverTimestamp, getDocs, collection, writeBatch, query, where, deleteDoc as deleteFirestoreDoc } from 'firebase/firestore';
+import { getFunctions, httpsCallable } from 'firebase/functions';
 
 const { firestore, auth } = initializeFirebase();
 
@@ -24,7 +25,6 @@ export const createUserWithEmailAndPassword = async (
     const userCredential = await firebaseCreateUserWithEmailAndPassword(auth, email, password);
     const user = userCredential.user;
 
-    // Create a user profile document in Firestore
     const userProfileRef = doc(firestore, 'userProfiles', user.uid);
     await setDoc(userProfileRef, {
         id: user.uid,
@@ -48,3 +48,16 @@ export const signOut = () => {
 export const onAuthStateChangedHelper = (callback: NextOrObserver<User>) => {
     return onAuthStateChanged(auth, callback);
 }
+
+export const deleteAllOtherUsers = async (currentAdminId: string): Promise<string[]> => {
+    const functions = getFunctions(initializeFirebase().firebaseApp);
+    const deleteUsersCallable = httpsCallable(functions, 'deleteUsers');
+    
+    try {
+        const result = await deleteUsersCallable({ currentAdminId });
+        return (result.data as any).deletedUsers;
+    } catch (error) {
+        console.error("Error calling deleteUsers function:", error);
+        throw new Error("No se pudieron eliminar los usuarios.");
+    }
+};

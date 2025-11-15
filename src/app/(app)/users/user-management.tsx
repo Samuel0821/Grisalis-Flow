@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState } from 'react';
@@ -12,6 +11,17 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -31,9 +41,9 @@ import {
 } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { UserProfile } from '@/lib/firebase/firestore';
-import { createUserWithEmailAndPassword } from '@/lib/firebase/auth';
+import { createUserWithEmailAndPassword, deleteAllOtherUsers } from '@/lib/firebase/auth';
 import { useAuth } from '@/hooks/use-auth';
-import { Loader2, PlusCircle } from 'lucide-react';
+import { Loader2, PlusCircle, ShieldAlert } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -46,13 +56,17 @@ const roleBadges: Record<UserProfile['role'], 'destructive' | 'secondary'> = {
 export function UserManagement({
   initialUsers,
   onUserCreated,
+  onUsersReset,
 }: {
   initialUsers: UserProfile[];
   onUserCreated: (user: UserProfile) => void;
+  onUsersReset: () => void;
 }) {
+  const { user: adminUser } = useAuth();
   const { toast } = useToast();
   const [users, setUsers] = useState<UserProfile[]>(initialUsers);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isResetting, setIsResetting] = useState(false);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
 
   // Form state
@@ -89,11 +103,10 @@ export function UserManagement({
         email,
         displayName,
         role,
-        createdAt: new Date() as any, // This is a client-side approximation
+        createdAt: new Date() as any, 
       };
 
       onUserCreated(newUserProfile);
-      setUsers((prev) => [...prev, newUserProfile]);
 
       toast({ title: '¡Éxito!', description: `Usuario ${displayName} creado.` });
       resetForm();
@@ -115,10 +128,51 @@ export function UserManagement({
       setIsSubmitting(false);
     }
   };
+  
+  const handleResetUsers = async () => {
+    if (!adminUser) return;
+    setIsResetting(true);
+    try {
+        await deleteAllOtherUsers(adminUser.uid);
+        onUsersReset();
+        toast({ title: "Sistema Restablecido", description: "Todos los usuarios (excepto tú) han sido eliminados." });
+    } catch(error: any) {
+        toast({ variant: 'destructive', title: "Error al Restablecer", description: error.message });
+    } finally {
+        setIsResetting(false);
+    }
+  }
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-end">
+      <div className="flex justify-end gap-2">
+        <AlertDialog>
+          <AlertDialogTrigger asChild>
+            <Button variant="destructive">
+                {isResetting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ShieldAlert className="mr-2 h-4 w-4" />}
+              Restablecer Usuarios
+            </Button>
+          </AlertDialogTrigger>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>¿Estás absolutamente seguro?</AlertDialogTitle>
+              <AlertDialogDescription>
+                Esta acción es irreversible. Se eliminarán **TODOS** los usuarios del sistema de autenticación y de la base de datos de perfiles, **excepto tu propia cuenta de administrador**. Esto es útil para limpiar usuarios "fantasma" o empezar de cero.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+              <AlertDialogAction
+                className="bg-destructive hover:bg-destructive/90"
+                onClick={handleResetUsers}
+                disabled={isResetting}
+              >
+                Sí, restablecer todo
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
         <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
           <DialogTrigger asChild>
             <Button>
@@ -208,8 +262,8 @@ export function UserManagement({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {users.length > 0 ? (
-              users.map((u) => (
+            {initialUsers.length > 0 ? (
+              initialUsers.map((u) => (
                   <TableRow key={u.id}>
                     <TableCell className="font-medium">{u.displayName}</TableCell>
                     <TableCell className="text-muted-foreground">{u.email}</TableCell>

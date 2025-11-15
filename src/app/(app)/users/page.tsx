@@ -1,12 +1,11 @@
-
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { getAllUsers, getUserProfile, UserProfile } from '@/lib/firebase/firestore';
 import { Loader2, ShieldAlert } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { UserManagement } from './user-management';
 
 
@@ -17,35 +16,40 @@ export default function UsersPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
 
-  useEffect(() => {
-    if (user) {
-      const fetchData = async () => {
-        setIsLoading(true);
-        try {
-          const profile = await getUserProfile(user.uid);
-          setUserProfile(profile);
-          if (profile && profile.role === 'admin') {
-            const usersData = await getAllUsers();
-            setUsers(usersData);
-          }
-        } catch (error) {
-          console.error('Error fetching users:', error);
-          toast({
-            variant: 'destructive',
-            title: 'Error al cargar los usuarios',
-            description: 'No se pudieron cargar los datos de los usuarios.',
-          });
-        } finally {
-          setIsLoading(false);
-        }
-      };
-      fetchData();
+  const fetchAllData = useCallback(async () => {
+    if (!user) return;
+    setIsLoading(true);
+    try {
+      const profile = await getUserProfile(user.uid);
+      setUserProfile(profile);
+      if (profile && profile.role === 'admin') {
+        const usersData = await getAllUsers();
+        setUsers(usersData);
+      }
+    } catch (error) {
+      console.error('Error fetching users:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Error al cargar los usuarios',
+        description: 'No se pudieron cargar los datos de los usuarios.',
+      });
+    } finally {
+      setIsLoading(false);
     }
   }, [user, toast]);
+
+  useEffect(() => {
+    fetchAllData();
+  }, [fetchAllData]);
   
   const handleUserCreated = (newUser: UserProfile) => {
     setUsers(prev => [...prev, newUser].sort((a, b) => a.displayName!.localeCompare(b.displayName!)));
   };
+  
+  const handleUsersReset = () => {
+      // After reset, refetch all data to get the clean state
+      fetchAllData();
+  }
 
   if (isLoading) {
     return (
@@ -77,7 +81,11 @@ export default function UsersPage() {
         <h1 className="font-headline text-3xl font-bold tracking-tight">Gestión de Usuarios</h1>
         <p className="text-muted-foreground">Crea y gestiona los usuarios del sistema. Solo visible para Administradores.</p>
       </div>
-       <UserManagement initialUsers={users} onUserCreated={handleUserCreated} />
+       <UserManagement 
+         initialUsers={users} 
+         onUserCreated={handleUserCreated}
+         onUsersReset={handleUsersReset}
+        />
     </div>
   );
 }
