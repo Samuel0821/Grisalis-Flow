@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -51,11 +50,10 @@ import { Badge } from '@/components/ui/badge';
 import { UserProfile, deleteUserProfile, updateUserProfile } from '@/lib/firebase/firestore';
 import { createUserWithEmailAndPassword } from '@/lib/firebase/auth';
 import { useAuth } from '@/hooks/use-auth';
-import { Loader2, PlusCircle, MoreHorizontal, Edit, Trash2 } from 'lucide-react';
+import { Loader2, PlusCircle, MoreHorizontal, Edit, Trash2, RefreshCw } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { getAuth } from 'firebase/auth';
 
 const roleBadges: Record<UserProfile['role'], 'destructive' | 'secondary'> = {
   admin: 'destructive',
@@ -65,6 +63,7 @@ const roleBadges: Record<UserProfile['role'], 'destructive' | 'secondary'> = {
 export function UserManagement({
   initialUsers,
   onUserCreated,
+  onUsersReset
 }: {
   initialUsers: UserProfile[];
   onUserCreated: (user: UserProfile) => void;
@@ -83,70 +82,9 @@ export function UserManagement({
     setUsers(initialUsers);
   }, [initialUsers]);
 
-  // Create form state
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [displayName, setDisplayName] = useState('');
-  const [role, setRole] = useState<'admin' | 'member'>('member');
-  
   // Edit form state
   const [editDisplayName, setEditDisplayName] = useState('');
   const [editRole, setEditRole] = useState<'admin' | 'member'>('member');
-
-
-  const resetCreateForm = () => {
-    setEmail('');
-    setPassword('');
-    setDisplayName('');
-    setRole('member');
-  };
-
-  const handleCreateUser = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!displayName.trim() || !email.trim() || !password.trim()) {
-      toast({ variant: 'destructive', title: 'Todos los campos son requeridos' });
-      return;
-    }
-     if (password.length < 6) {
-        toast({ variant: 'destructive', title: 'Contraseña débil', description: 'La contraseña debe tener al menos 6 caracteres.' });
-        return;
-    }
-
-    setIsSubmitting(true);
-    try {
-      const newUserProfile = await createUserWithEmailAndPassword(email, password, displayName, role);
-
-      // This is the important part: after creation, Firebase auto-signs in the new user.
-      // We must now sign the admin back in. The simplest way is to re-authenticate or,
-      // more robustly in a client-side scenario, reload the page to restore the admin's persisted session.
-
-      toast({ title: '¡Éxito!', description: `Usuario ${displayName} creado. Refrescando para restaurar sesión...` });
-      
-      // We optimistically update the UI, then reload.
-      onUserCreated(newUserProfile);
-      
-      // Wait a moment for the user to see the toast, then reload.
-      setTimeout(() => {
-        window.location.reload();
-      }, 1500);
-
-    } catch (error: any) {
-      console.error('Error creating user:', error);
-      let description = 'No se pudo crear el usuario. Por favor, inténtalo de nuevo.';
-      if (error.code === 'auth/email-already-in-use') {
-        description = 'Este correo electrónico ya está en uso. Si el usuario existe pero no aparece, puede que le falte un perfil en la base de datos.';
-      } else if (error.code === 'auth/invalid-email') {
-        description = 'El formato del correo electrónico no es válido.';
-      }
-      toast({
-        variant: 'destructive',
-        title: 'Error al crear usuario',
-        description,
-      });
-      setIsSubmitting(false); // Only set submitting to false on error. On success, page reloads.
-    }
-  };
 
   const handleDeleteUser = async (userToDelete: UserProfile) => {
     if (!adminUser) return;
@@ -190,88 +128,46 @@ export function UserManagement({
         setIsSubmitting(false);
     }
   }
+
+  const handleResetUsers = () => {
+    onUsersReset();
+    toast({
+        title: "Restableciendo usuarios...",
+        description: "Se están restaurando los usuarios de fábrica. La página se recargará."
+    });
+    setTimeout(() => {
+        window.location.reload();
+    }, 2000);
+  }
   
 
   return (
     <div className="space-y-4">
       <div className="flex justify-end gap-2">
-        <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-          <DialogTrigger asChild>
-            <Button>
-              <PlusCircle className="mr-2" />
-              Crear Nuevo Usuario
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-md">
-            <form onSubmit={handleCreateUser}>
-              <DialogHeader>
-                <DialogTitle>Crear Nuevo Usuario</DialogTitle>
-                <DialogDescription>
-                  Completa los detalles para añadir un nuevo usuario al sistema.
-                </DialogDescription>
-              </DialogHeader>
-              <div className="grid gap-4 py-4">
-                <div className="space-y-2">
-                  <Label htmlFor="displayName">Nombre Completo</Label>
-                  <Input
-                    id="displayName"
-                    value={displayName}
-                    onChange={(e) => setDisplayName(e.target.value)}
-                    placeholder="Ej: Juan Pérez"
-                    disabled={isSubmitting}
-                  />
-                </div>
-                 <div className="space-y-2">
-                  <Label htmlFor="email">Correo Electrónico</Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="ej: juan.perez@empresa.com"
-                    disabled={isSubmitting}
-                  />
-                </div>
-                 <div className="space-y-2">
-                  <Label htmlFor="password">Contraseña</Label>
-                  <Input
-                    id="password"
-                    type="password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="Debe tener al menos 6 caracteres"
-                    disabled={isSubmitting}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="role">Rol</Label>
-                  <Select onValueChange={(v) => setRole(v as 'admin' | 'member')} value={role} disabled={isSubmitting}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecciona un rol" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="member">Miembro</SelectItem>
-                      <SelectItem value="admin">Administrador</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-              <DialogFooter>
-                 <DialogClose asChild><Button type="button" variant="outline">Cancelar</Button></DialogClose>
-                <Button type="submit" disabled={isSubmitting}>
-                  {isSubmitting ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Creando...
-                    </>
-                  ) : (
-                    'Crear Usuario'
-                  )}
+         <AlertDialog>
+            <AlertDialogTrigger asChild>
+                <Button variant="outline">
+                    <RefreshCw className="mr-2 h-4 w-4" />
+                    Restablecer Usuarios de Fábrica
                 </Button>
-              </DialogFooter>
-            </form>
-          </DialogContent>
-        </Dialog>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+                <AlertDialogHeader>
+                    <AlertDialogTitle>¿Estás seguro?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                        Esta acción eliminará a TODOS los usuarios actuales y restaurará la lista de usuarios predeterminada. 
+                        Es útil si tienes usuarios duplicados o con errores que no puedes eliminar. 
+                        Cualquier usuario que hayas creado se perderá.
+                    </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                    <AlertDialogAction onClick={handleResetUsers} className="bg-destructive hover:bg-destructive/90">
+                        Sí, restablecer usuarios
+                    </AlertDialogAction>
+                </AlertDialogFooter>
+            </AlertDialogContent>
+        </AlertDialog>
       </div>
 
       <div className="border rounded-lg">
@@ -324,7 +220,7 @@ export function UserManagement({
                                         <AlertDialogHeader>
                                             <AlertDialogTitle>¿Estás seguro?</AlertDialogTitle>
                                             <AlertDialogDescription>
-                                                Esta acción eliminará el perfil de <span className='font-bold'>{u.displayName}</span> de la aplicación. Perderá acceso a sus datos. Esta acción no elimina al usuario del sistema de autenticación de Firebase.
+                                                Esta acción eliminará el perfil de <span className='font-bold'>{u.displayName}</span> de la aplicación. Perderá acceso a sus datos.
                                             </AlertDialogDescription>
                                         </AlertDialogHeader>
                                         <AlertDialogFooter>
