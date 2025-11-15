@@ -2,7 +2,7 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Defines a set of reusable functions.
+    // Reusable functions
     function isSignedIn() {
       return request.auth != null;
     }
@@ -15,115 +15,96 @@ service cloud.firestore {
     function isAdmin() {
       return isSignedIn() && getUserRole(request.auth.uid) == 'admin';
     }
-    
-    // Function to check if a user is a member of a specific project.
     function isProjectMember(projectId) {
-      return exists(/databases/$(database)/documents/projects/$(projectId)/members/$(request.auth.uid));
+      return isSignedIn() && exists(/databases/$(database)/documents/projects/$(projectId)/members/$(request.auth.uid));
     }
-
-    // Function to check if a user is an owner of a specific project.
     function isProjectOwner(projectId) {
-        return get(/databases/$(database)/documents/projects/$(projectId)/members/$(request.auth.uid)).data.role == 'owner';
+        return isSignedIn() && get(/databases/$(database)/documents/projects/$(projectId)/members/$(request.auth.uid)).data.role == 'owner';
     }
 
+    // User Profiles
     match /userProfiles/{userId} {
-      // Allow users to read their own profile. Admins can read any.
       allow get: if isOwner(userId) || isAdmin();
-      
-      // Allow an authenticated user to list other users (for adding to projects). Admins can also list.
       allow list: if isSignedIn();
-      
-      // Allow a user to create their own profile upon sign-up with 'member' role,
-      // OR allow the initial admin user to be created.
       allow create: if (isOwner(userId) && request.resource.data.role == 'member') || request.resource.data.role == 'admin';
-
-      // Allow admins to update or delete any user profile.
       allow update, delete: if isAdmin();
     }
 
+    // Projects and their members
     match /projects/{projectId} {
-      // Only project members or admins can read project data.
-      allow get, list: if isProjectMember(projectId) || isAdmin();
-      // Only authenticated users can create projects.
+      allow read: if isProjectMember(projectId) || isAdmin();
       allow create: if isSignedIn();
-      // Only project owners or admins can update a project.
       allow update: if isProjectOwner(projectId) || isAdmin();
-      // Only project owners or admins can delete a project.
       allow delete: if isProjectOwner(projectId) || isAdmin();
-    }
 
-    match /projects/{projectId}/members/{userId} {
-        // Project members and admins can read the member list.
-        allow get, list: if isProjectMember(projectId) || isAdmin();
-        // Only project owners and admins can add, update or remove members.
+      match /members/{userId} {
+        allow read: if isProjectMember(projectId) || isAdmin();
         allow write: if isProjectOwner(projectId) || isAdmin();
+      }
     }
 
+    // Tasks and their comments
     match /tasks/{taskId} {
       function getTaskProjectId() {
         return get(/databases/$(database)/documents/tasks/$(taskId)).data.projectId;
       }
-      // A user can read/write a task if they are a member of the project the task belongs to, or if they are an admin.
       allow read, write: if isProjectMember(getTaskProjectId()) || isAdmin();
-    }
 
-     match /tasks/{taskId}/comments/{commentId} {
-        function getTaskProjectId() {
-            return get(/databases/$(database)/documents/tasks/$(taskId)).data.projectId;
-        }
-        // Anyone in the project or an admin can read/write comments.
+      match /comments/{commentId} {
         allow read, write: if isProjectMember(getTaskProjectId()) || isAdmin();
+      }
     }
 
+    // Bugs
     match /bugs/{bugId} {
       function getBugProjectId() {
         return get(/databases/$(database)/documents/bugs/$(bugId)).data.projectId;
       }
-       // Anyone can create a bug report.
       allow create: if isSignedIn();
-      // Only project members or admins can read/update/delete bugs.
-      allow get, list, update, delete: if isProjectMember(getBugProjectId()) || isAdmin();
+      allow read, update, delete: if isProjectMember(getBugProjectId()) || isAdmin();
     }
 
+    // Sprints
     match /sprints/{sprintId} {
       function getSprintProjectId() {
         return get(/databases/$(database)/documents/sprints/$(sprintId)).data.projectId;
       }
-      // A user can read/write a sprint if they are a member of the project, or if they are an admin.
       allow read, write: if isProjectMember(getSprintProjectId()) || isAdmin();
     }
     
+    // Time Logs
     match /timeLogs/{timeLogId} {
-      // Users can only read/write their own time logs. Admins can read all.
-      allow get, list: if isOwner(get(/databases/$(database)/documents/timeLogs/$(timeLogId)).data.userId) || isAdmin();
+      allow read: if isOwner(resource.data.userId) || isAdmin();
       allow write: if isOwner(request.resource.data.userId);
     }
 
+    // Wiki
     match /wiki/{wikiPageId} {
-        allow read, write: if isSignedIn();
+      allow read, write: if isSignedIn() || isAdmin();
 
-        match /versions/{versionId} {
-            allow get, list: if isSignedIn();
-            allow write: if false;
-        }
+      match /versions/{versionId} {
+        allow read: if isSignedIn() || isAdmin();
+        allow write: if false; // Versions are immutable
+      }
     }
 
+    // Notifications
     match /notifications/{notificationId} {
-        // GET: A user can get their own notification, or an admin can get any.
-        allow get: if isOwner(resource.data.userId) || isAdmin();
-        // LIST: A user can list ONLY their own notifications. Admins can list all.
-        allow list: if (request.query.where[0] == ['userId', '==', request.auth.uid]) || isAdmin();
-        // WRITE: Only the system can create notifications. Users can update their own to mark as read.
-        allow create: if false;
-        allow update: if isOwner(get(/databases/$(database)/documents/notifications/$(notificationId)).data.userId) || isAdmin();
-        allow delete: if false;
+      allow get: if isOwner(resource.data.userId) || isAdmin();
+      // Allow a user to list THEIR OWN notifications, or an admin to list any.
+      allow list: if (request.query.where[0] == ['userId', '==', request.auth.uid]) || isAdmin();
+      // Only the system (backend functions) should create notifications.
+      // Users can update their own to mark as read.
+      allow create: if false; 
+      allow update: if isOwner(get(/databases/$(database)/documents/notifications/$(notificationId)).data.userId);
+      allow delete: if false;
     }
 
+    // Audit Logs
     match /auditLogs/{logId} {
-        allow create: if isSignedIn();
-        allow read: if isAdmin();
-        allow list: if isAdmin();
-        allow update, delete: if false;
+      allow read: if isAdmin();
+      allow create: if isSignedIn(); // Allow any signed-in user to trigger an audit log event
+      allow update, delete: if false; // Logs are immutable
     }
   }
 }
