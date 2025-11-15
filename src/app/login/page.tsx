@@ -20,9 +20,7 @@ import { useToast } from '@/hooks/use-toast';
 import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
 import { Loader2, AlertTriangle, UserPlus } from 'lucide-react';
 import { createAuditLog, getAllUsers, UserProfile } from '@/lib/firebase/firestore';
-import { doc, setDoc, serverTimestamp, getFirestore } from 'firebase/firestore';
-import { errorEmitter } from '@/firebase/error-emitter';
-import { FirestorePermissionError } from '@/firebase/errors';
+import { doc, setDoc, serverTimestamp, getFirestore, writeBatch } from 'firebase/firestore';
 
 
 export default function LoginPage() {
@@ -101,63 +99,52 @@ export default function LoginPage() {
     setIsSeeding(true);
     const adminEmail = 'admin@grisalistech.com';
     const adminPassword = 'Adm1nTech1411';
+    const db = getFirestore();
+    const auth = getAuth();
 
     try {
-      // 1. Create the user in Firebase Auth
-      const userCredential = await createUserWithEmailAndPassword(getAuth(), adminEmail, adminPassword);
-      const user = userCredential.user;
+        // 1. Create user in Firebase Auth
+        const userCredential = await createUserWithEmailAndPassword(auth, adminEmail, adminPassword);
+        const user = userCredential.user;
 
-      // 2. Create the user profile in Firestore with 'admin' role
-      const userProfileRef = doc(getFirestore(), 'userProfiles', user.uid);
-      const userProfileData = {
-          id: user.uid,
-          email: user.email,
-          displayName: 'Admin Grisalis',
-          role: 'admin',
-          createdAt: serverTimestamp(),
-      };
-      
-      // Use a non-blocking write with custom error handling
-      setDoc(userProfileRef, userProfileData)
-        .then(async () => {
-            await createAuditLog({
-                userId: user.uid,
-                userName: 'Admin Grisalis',
-                action: 'Initial admin user created',
-                entity: 'user',
-                entityId: user.uid,
-                details: { email: user.email },
-            });
+        // 2. Use a batch write for atomic operation
+        const batch = writeBatch(db);
 
-            toast({
-                title: '¡Administrador Creado!',
-                description: 'Tu usuario administrador ha sido configurado. Ahora puedes iniciar sesión.',
-            });
+        // 3. Create user profile in Firestore
+        const userProfileRef = doc(db, 'userProfiles', user.uid);
+        const userProfileData: Omit<UserProfile, 'id'> = {
+            email: user.email!,
+            displayName: 'Admin Grisalis',
+            role: 'admin',
+            createdAt: serverTimestamp() as any,
+        };
+        batch.set(userProfileRef, userProfileData);
 
-            setIsSetupNeeded(false); // Hide the setup button
-        })
-        .catch(async (serverError) => {
-            // Create the rich, contextual error
-            const permissionError = new FirestorePermissionError({
-                path: userProfileRef.path,
-                operation: 'create',
-                requestResourceData: userProfileData,
-            });
-            
-            // This is the crucial part: emit the detailed error
-            errorEmitter.emit('permission-error', permissionError);
-            
-            // We can still show a generic toast to the user
-            toast({
-                variant: 'destructive',
-                title: 'Error de Permisos',
-                description: 'No se pudo crear el perfil de administrador.',
-            });
+        // 4. Create initial audit log
+        const auditLogRef = doc(collection(db, 'auditLogs'));
+        const auditLogData = {
+             userId: user.uid,
+             userName: 'Admin Grisalis',
+             action: 'Initial admin user created',
+             entity: 'user',
+             entityId: user.uid,
+             details: { email: user.email },
+             timestamp: serverTimestamp()
+        };
+        batch.set(auditLogRef, auditLogData);
+
+        // 5. Commit the batch
+        await batch.commit();
+
+        toast({
+            title: '¡Administrador Creado!',
+            description: 'Tu usuario administrador ha sido configurado. Ahora puedes iniciar sesión.',
         });
+        setIsSetupNeeded(false); // Hide the setup button
 
     } catch (error: any) {
         if (error.code === 'auth/email-already-in-use') {
-             toast({
+            toast({
                 variant: 'default',
                 title: 'Administrador ya existe',
                 description: 'El usuario administrador ya fue creado. Por favor, inicia sesión.',
@@ -168,13 +155,14 @@ export default function LoginPage() {
             toast({
                 variant: 'destructive',
                 title: 'Error en la Configuración',
-                description: 'No se pudo crear el usuario administrador. Revisa la consola para más detalles.',
+                description: `No se pudo crear el usuario administrador. Error: ${error.message}`,
             });
         }
     } finally {
         setIsSeeding(false);
     }
   }
+
 
   return (
     <main className="flex min-h-screen flex-col items-center justify-center bg-background p-4">
