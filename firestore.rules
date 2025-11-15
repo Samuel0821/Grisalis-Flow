@@ -31,7 +31,6 @@ service cloud.firestore {
     match /userProfiles/{userId} {
       allow get: if isOwner(userId) || isAdmin();
       allow list: if isAdmin();
-      // Allow user creation only if the requester is an admin
       allow create: if isAdmin();
       allow update: if isOwner(userId) || isAdmin();
       // Allow deletion only if the requester is an admin and not deleting themselves
@@ -89,7 +88,7 @@ service cloud.firestore {
 
     match /notifications/{notificationId} {
       allow get, update, delete: if isOwner(resource.data.userId);
-      allow list: if (request.query.userId == request.auth.uid) || isAdmin();
+      allow list: if request.query.userId == request.auth.uid;
       allow create: if false;
     }
 
