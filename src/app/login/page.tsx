@@ -19,8 +19,8 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
 import { Loader2, AlertTriangle, UserPlus } from 'lucide-react';
-import { createAuditLog, getAllUsers, UserProfile } from '@/lib/firebase/firestore';
-import { doc, setDoc, serverTimestamp, getFirestore, writeBatch } from 'firebase/firestore';
+import { createAuditLog } from '@/lib/firebase/firestore';
+import { doc, setDoc, serverTimestamp, getFirestore, writeBatch, collection } from 'firebase/firestore';
 
 
 export default function LoginPage() {
@@ -30,26 +30,11 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isSeeding, setIsSeeding] = useState(false);
-  const [isSetupNeeded, setIsSetupNeeded] = useState(false);
-  const [isCheckingSetup, setIsCheckingSetup] = useState(true);
+  
+  // We will assume setup might be needed and let the button logic handle it.
+  const [isSetupNeeded, setIsSetupNeeded] = useState(true);
+  const [isCheckingSetup, setIsCheckingSetup] = useState(false);
 
-  useEffect(() => {
-    // Check if any user exists to determine if the setup button should be shown
-    const checkUsers = async () => {
-      try {
-        const users = await getAllUsers();
-        setIsSetupNeeded(users.length === 0);
-      } catch (error) {
-        // This might fail if rules prevent listing users, which is fine.
-        // We'll assume setup is not needed if we can't check.
-        console.warn("Could not check for existing users, assuming setup is complete.", error);
-        setIsSetupNeeded(false);
-      } finally {
-        setIsCheckingSetup(false);
-      }
-    };
-    checkUsers();
-  }, []);
 
   const handleSignIn = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -112,11 +97,11 @@ export default function LoginPage() {
 
         // 3. Create user profile in Firestore
         const userProfileRef = doc(db, 'userProfiles', user.uid);
-        const userProfileData: Omit<UserProfile, 'id'> = {
+        const userProfileData = {
             email: user.email!,
             displayName: 'Admin Grisalis',
             role: 'admin',
-            createdAt: serverTimestamp() as any,
+            createdAt: serverTimestamp(),
         };
         batch.set(userProfileRef, userProfileData);
 
@@ -245,7 +230,7 @@ export default function LoginPage() {
                   disabled={isLoading || isSeeding}
                 />
               </div>
-              <Button type="submit" className="w-full" disabled={isLoading || isSeeding || isSetupNeeded}>
+              <Button type="submit" className="w-full" disabled={isLoading || isSeeding || (isSetupNeeded && !isSeeding)}>
                 {isLoading ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
