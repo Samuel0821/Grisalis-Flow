@@ -28,87 +28,73 @@ service cloud.firestore {
       return get(/databases/$(database)/documents/projects/$(projectId)/members/$(request.auth.uid)).data.role == 'owner';
     }
 
-    // User Profiles
     match /userProfiles/{userId} {
-      allow read: if isOwner(userId) || isAdmin();
-      allow list: if isSignedIn();
-      allow create: if isOwner(userId);
-      allow update, delete: if isOwner(userId) || isAdmin();
+      allow get: if isOwner(userId) || isAdmin();
+      allow list: if isAdmin();
+      allow create: if isAdmin();
+      allow update: if isOwner(userId) || isAdmin();
+      allow delete: if false; // No one can delete user profiles for now
     }
 
-    // Projects and their subcollections
     match /projects/{projectId} {
       allow get, list: if isProjectMember(projectId) || isAdmin();
       allow create: if isSignedIn();
       allow update, delete: if isProjectOwner(projectId) || isAdmin();
 
       match /members/{memberId} {
-        allow read: if isProjectMember(projectId) || isAdmin();
+        allow get, list: if isProjectMember(projectId) || isAdmin();
         allow create, update, delete: if isProjectOwner(projectId) || isAdmin();
       }
     }
 
-    // Tasks and their comments
     match /tasks/{taskId} {
-      // Create: Anyone can create a task, rules below will validate it.
       allow create: if isSignedIn();
-      // Read, Update, Delete: Only members of the project this task belongs to, or admins.
       allow get, update, delete: if isProjectMember(resource.data.projectId) || isAdmin();
-      // List: Only allow listing tasks if the query is filtered by a project the user is a member of.
-      allow list: if (request.query.keys.hasAny(['projectId']) && isProjectMember(request.query.projectId)) || isAdmin();
+      allow list: if isAdmin();
 
       match /comments/{commentId} {
         allow read, write: if isProjectMember(get(/databases/$(database)/documents/tasks/$(taskId)).data.projectId) || isAdmin();
       }
     }
 
-    // Bugs
     match /bugs/{bugId} {
       allow create: if isSignedIn();
       allow get, update, delete: if isProjectMember(resource.data.projectId) || isAdmin();
-      allow list: if isAdmin(); // Only admins can list all bugs for now. Can be expanded later.
+      allow list: if isAdmin();
     }
 
-    // Sprints
     match /sprints/{sprintId} {
       allow create: if isSignedIn();
       allow get, update, delete: if isProjectMember(resource.data.projectId) || isAdmin();
       allow list: if (request.query.keys.hasAny(['projectId']) && isProjectMember(request.query.projectId)) || isAdmin();
     }
     
-    // Time Logs
     match /timeLogs/{timeLogId} {
-      // Users can only manage their own time logs. Admins can see all.
       allow get: if isOwner(resource.data.userId) || isAdmin();
       allow list: if (request.query.userId == request.auth.uid) || isAdmin();
       allow create: if isOwner(request.resource.data.userId);
       allow update, delete: if isOwner(resource.data.userId);
     }
 
-    // Wiki and versions
     match /wiki/{wikiPageId} {
       allow read, write: if isSignedIn();
 
       match /versions/{versionId} {
         allow read: if isSignedIn();
-        allow write: if false; // Versions are immutable
+        allow write: if false; 
       }
     }
 
-    // Notifications
     match /notifications/{notificationId} {
-      // Users can only manage their own notifications.
-      allow get: if isOwner(resource.data.userId);
-      allow list: if request.query.userId == request.auth.uid;
-      allow create: if false; // Created by backend logic only
-      allow update, delete: if isOwner(resource.data.userId);
+      allow get, update, delete: if isOwner(resource.data.userId);
+      allow list: if (request.query.userId == request.auth.uid) || isAdmin();
+      allow create: if false;
     }
 
-    // Audit Logs
     match /auditLogs/{logId} {
-      allow read: if isAdmin();
-      allow create: if isSignedIn(); // Any signed-in user action can trigger a log.
-      allow update, delete: if false; // Immutable
+      allow read, list: if isAdmin();
+      allow create: if isSignedIn();
+      allow update, delete: if false; 
     }
   }
 }

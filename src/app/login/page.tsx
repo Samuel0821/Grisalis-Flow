@@ -20,7 +20,7 @@ import { useToast } from '@/hooks/use-toast';
 import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
 import { Loader2, AlertTriangle, Users } from 'lucide-react';
 import { createAuditLog } from '@/lib/firebase/firestore';
-import { doc, setDoc, serverTimestamp, getFirestore, writeBatch, collection, getDocs } from 'firebase/firestore';
+import { doc, setDoc, serverTimestamp, getFirestore, writeBatch, collection, getDocs, query, limit } from 'firebase/firestore';
 
 
 export default function LoginPage() {
@@ -38,7 +38,9 @@ export default function LoginPage() {
     const checkUsers = async () => {
         const db = getFirestore();
         try {
-            const usersSnapshot = await getDocs(collection(db, 'userProfiles'));
+            const usersRef = collection(db, 'userProfiles');
+            const q = query(usersRef, limit(1));
+            const usersSnapshot = await getDocs(q);
             setIsSetupNeeded(usersSnapshot.empty);
         } catch (error) {
             console.error("Error checking for users:", error);

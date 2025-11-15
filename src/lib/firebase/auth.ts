@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import {
@@ -16,16 +15,22 @@ import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
 
 const { firestore, auth } = initializeFirebase();
 
-export const createUserWithEmailAndPassword = async (email: string, password: string, displayName: string) => {
+export const createUserWithEmailAndPassword = async (
+  email: string,
+  password: string,
+  displayName: string,
+  role: 'admin' | 'member' = 'member'
+) => {
     const userCredential = await firebaseCreateUserWithEmailAndPassword(auth, email, password);
     const user = userCredential.user;
 
     // Create a user profile document in Firestore
     const userProfileRef = doc(firestore, 'userProfiles', user.uid);
     await setDoc(userProfileRef, {
+        id: user.uid,
         email: user.email,
         displayName: displayName,
-        role: 'member', // Default role
+        role: role,
         createdAt: serverTimestamp(),
     });
     

@@ -11,6 +11,7 @@ import {
   Settings,
   BarChart,
   ShieldCheck,
+  Users,
 } from 'lucide-react';
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
@@ -34,8 +35,12 @@ const navItems = [
   { href: '/reports', icon: BarChart, label: 'Informes' },
   { href: '/wiki', icon: BookText, label: 'Wiki' },
   { href: '/summarizer', icon: Sparkles, label: 'Resumidor IA' },
-  { href: '/audit', icon: ShieldCheck, label: 'Auditoría' },
 ];
+
+const adminNavItems = [
+    { href: '/users', icon: Users, label: 'Usuarios' },
+    { href: '/audit', icon: ShieldCheck, label: 'Auditoría' },
+]
 
 export function SidebarNav() {
   const pathname = usePathname();
@@ -53,6 +58,22 @@ export function SidebarNav() {
       <SidebarContent className="p-2">
         <SidebarMenu>
           {navItems.map((item) => (
+            <SidebarMenuItem key={item.href}>
+              <Link href={item.href} passHref>
+                <SidebarMenuButton
+                  isActive={pathname.startsWith(item.href)}
+                  tooltip={{ children: item.label, side: 'right' }}
+                >
+                  <item.icon />
+                  <span>{item.label}</span>
+                </SidebarMenuButton>
+              </Link>
+            </SidebarMenuItem>
+          ))}
+        </SidebarMenu>
+         <Separator className="my-2" />
+        <SidebarMenu>
+             {adminNavItems.map((item) => (
             <SidebarMenuItem key={item.href}>
               <Link href={item.href} passHref>
                 <SidebarMenuButton
