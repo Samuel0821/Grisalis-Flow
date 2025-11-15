@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -21,6 +22,7 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
+  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -65,6 +67,7 @@ export function UserManagement({
 }: {
   initialUsers: UserProfile[];
   onUserCreated: (user: UserProfile) => void;
+  onUsersReset: () => void;
 }) {
   const { user: adminUser } = useAuth();
   const { toast } = useToast();
@@ -130,7 +133,7 @@ export function UserManagement({
       console.error('Error creating user:', error);
       let description = 'No se pudo crear el usuario. Por favor, inténtalo de nuevo.';
       if (error.code === 'auth/email-already-in-use') {
-        description = 'Este correo electrónico ya está en uso. Elimínelo manualmente desde la Consola de Firebase.';
+        description = 'Este correo electrónico ya está en uso.';
       } else if (error.code === 'auth/invalid-email') {
         description = 'El formato del correo electrónico no es válido.';
       }
@@ -147,8 +150,6 @@ export function UserManagement({
   const handleDeleteUser = async (userToDelete: UserProfile) => {
     if (!adminUser) return;
     try {
-        // This will now delete the Firestore document, which is protected by security rules.
-        // It will not delete the user from Firebase Auth.
         await deleteUserProfile(userToDelete.id, { uid: adminUser.uid, displayName: adminUser.displayName });
         setUsers(prev => prev.filter(u => u.id !== userToDelete.id));
         toast({ title: "Perfil de usuario eliminado", description: `${userToDelete.displayName} ha sido eliminado de la aplicación.`});
