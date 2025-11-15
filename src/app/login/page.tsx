@@ -18,9 +18,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
-import { Loader2, AlertTriangle, UserPlus } from 'lucide-react';
+import { Loader2, AlertTriangle, Users } from 'lucide-react';
 import { createAuditLog } from '@/lib/firebase/firestore';
-import { doc, setDoc, serverTimestamp, getFirestore, writeBatch, collection } from 'firebase/firestore';
+import { doc, setDoc, serverTimestamp, getFirestore, writeBatch, collection, getDocs } from 'firebase/firestore';
 
 
 export default function LoginPage() {
@@ -31,9 +31,25 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [isSeeding, setIsSeeding] = useState(false);
   
-  const [isSetupNeeded, setIsSetupNeeded] = useState(true);
-  const [isCheckingSetup, setIsCheckingSetup] = useState(false);
+  const [isSetupNeeded, setIsSetupNeeded] = useState(false);
+  const [isCheckingSetup, setIsCheckingSetup] = useState(true);
 
+  useEffect(() => {
+    const checkUsers = async () => {
+        const db = getFirestore();
+        try {
+            const usersSnapshot = await getDocs(collection(db, 'userProfiles'));
+            setIsSetupNeeded(usersSnapshot.empty);
+        } catch (error) {
+            console.error("Error checking for users:", error);
+            // Assume setup is needed if we can't check
+            setIsSetupNeeded(true);
+        } finally {
+            setIsCheckingSetup(false);
+        }
+    };
+    checkUsers();
+  }, []);
 
   const handleSignIn = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -45,7 +61,7 @@ export default function LoginPage() {
       await createAuditLog({
         userId: user.uid,
         userName: user.displayName || email,
-        action: 'User signed in successfully',
+        action: 'Usuario ha iniciado sesión correctamente',
         entity: 'user',
         entityId: user.uid,
         details: { email },
@@ -62,7 +78,7 @@ export default function LoginPage() {
       await createAuditLog({
         userId: 'anonymous',
         userName: email,
-        action: 'User failed to sign in',
+        action: 'Usuario falló al iniciar sesión',
         entity: 'user',
         entityId: 'unknown',
         details: { email, error: (error as Error).message },
@@ -78,65 +94,73 @@ export default function LoginPage() {
     }
   };
 
-  const handleSetupFirstAdmin = async () => {
+  const handleSetupTeam = async () => {
     setIsSeeding(true);
-    const adminEmail = 'admin@grisalistech.com';
-    const adminPassword = 'Adm1nTech1411';
     const db = getFirestore();
     const auth = getAuth();
 
-    try {
-        const userCredential = await createUserWithEmailAndPassword(auth, adminEmail, adminPassword);
-        const user = userCredential.user;
+    const team = [
+        { name: 'Samuel Grisales', email: 'samuel.grisales@grisalistech.com', role: 'admin' },
+        { name: 'Marco Arce', email: 'marco.arce@grisalistech.com', role: 'member' },
+        { name: 'Kevin Alfonso', email: 'kevin.alfonso@grisalistech.com', role: 'member' },
+        { name: 'Samuel Morales', email: 'samuel.morales@grisalistech.com', role: 'member' },
+        { name: 'Juan Ordoñez', email: 'juan.ordonez@grisalistech.com', role: 'member' },
+    ];
+    const defaultPassword = 'GrisalisFlow2024!';
 
+    try {
         const batch = writeBatch(db);
 
-        const userProfileRef = doc(db, 'userProfiles', user.uid);
-        const userProfileData = {
-            id: user.uid,
-            email: user.email!,
-            displayName: 'Admin Grisalis',
-            role: 'admin',
-            createdAt: serverTimestamp(),
-        };
-        batch.set(userProfileRef, userProfileData);
+        for (const member of team) {
+            try {
+                const userCredential = await createUserWithEmailAndPassword(auth, member.email, defaultPassword);
+                const user = userCredential.user;
 
+                const userProfileRef = doc(db, 'userProfiles', user.uid);
+                const userProfileData = {
+                    id: user.uid,
+                    email: user.email!,
+                    displayName: member.name,
+                    role: member.role,
+                    createdAt: serverTimestamp(),
+                };
+                batch.set(userProfileRef, userProfileData);
+
+            } catch (error: any) {
+                if (error.code === 'auth/email-already-in-use') {
+                   console.log(`Usuario ${member.email} ya existe, omitiendo creación.`);
+                   continue;
+                }
+                throw error;
+            }
+        }
+        
         const auditLogRef = doc(collection(db, 'auditLogs'));
-        const auditLogData = {
-             userId: user.uid,
-             userName: 'Admin Grisalis',
-             action: 'Initial admin user created',
+        batch.set(auditLogRef, {
+             userId: 'system',
+             userName: 'Sistema',
+             action: 'Configuración inicial del equipo completada',
              entity: 'user',
-             entityId: user.uid,
-             details: { email: user.email },
+             entityId: 'system',
+             details: { teamSize: team.length },
              timestamp: serverTimestamp()
-        };
-        batch.set(auditLogRef, auditLogData);
+        });
 
         await batch.commit();
 
         toast({
-            title: '¡Administrador Creado!',
-            description: 'Tu usuario administrador ha sido configurado. Ahora puedes iniciar sesión.',
+            title: '¡Equipo Configurado!',
+            description: 'Todos los usuarios del equipo han sido creados. Ahora pueden iniciar sesión.',
         });
         setIsSetupNeeded(false);
 
     } catch (error: any) {
-        if (error.code === 'auth/email-already-in-use') {
-            toast({
-                variant: 'default',
-                title: 'Administrador ya existe',
-                description: 'El usuario administrador ya fue creado. Por favor, inicia sesión.',
-            });
-            setIsSetupNeeded(false);
-        } else {
-            console.error('Error creating first admin:', error);
-            toast({
-                variant: 'destructive',
-                title: 'Error en la Configuración',
-                description: `No se pudo crear el usuario administrador. Error: ${error.message}`,
-            });
-        }
+        console.error('Error configurando el equipo:', error);
+        toast({
+            variant: 'destructive',
+            title: 'Error en la Configuración',
+            description: `No se pudo crear el equipo. Error: ${error.message}`,
+        });
     } finally {
         setIsSeeding(false);
     }
@@ -173,22 +197,22 @@ export default function LoginPage() {
                 </CardHeader>
                 <CardContent>
                     <p className="text-sm text-yellow-800 mb-4">
-                        Parece que es la primera vez que ejecutas la aplicación. Debes crear el primer usuario administrador para poder ingresar.
+                        Parece que es la primera vez que ejecutas la aplicación. Debes crear el equipo inicial para poder ingresar.
                     </p>
                     <Button 
                         className="w-full bg-yellow-400 text-yellow-900 hover:bg-yellow-500"
-                        onClick={handleSetupFirstAdmin}
+                        onClick={handleSetupTeam}
                         disabled={isSeeding}
                     >
                          {isSeeding ? (
                             <>
                                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                Creando Administrador...
+                                Configurando Equipo...
                             </>
                          ) : (
                              <>
-                                <UserPlus className="mr-2 h-4 w-4" />
-                                Crear Usuario Admin
+                                <Users className="mr-2 h-4 w-4" />
+                                Configurar Equipo Inicial
                              </>
                          )}
                     </Button>
@@ -202,7 +226,7 @@ export default function LoginPage() {
                 <Input
                   id="email"
                   type="email"
-                  placeholder="m@example.com"
+                  placeholder="tu.email@grisalistech.com"
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
@@ -242,7 +266,7 @@ export default function LoginPage() {
           </CardContent>
           <CardFooter className="flex flex-col gap-4">
             <div className="text-center text-sm text-muted-foreground">
-              Contacta al administrador para obtener una cuenta.
+              La contraseña por defecto para el equipo es: <span className="font-bold">GrisalisFlow2024!</span>
             </div>
           </CardFooter>
         </Card>

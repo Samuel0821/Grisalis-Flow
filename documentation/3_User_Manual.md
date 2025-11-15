@@ -11,11 +11,14 @@
 
 ### 1.1. Iniciar Sesión
 
-Para acceder a Grisalis Flow, necesitarás credenciales (correo y contraseña) proporcionadas por un administrador.
+Para acceder a Grisalis Flow, necesitarás credenciales. Como administrador, tus datos son:
 
 1.  Navega a la página de inicio.
-2.  Introduce tu correo electrónico y contraseña.
-3.  Haz clic en **"Iniciar sesión"**.
+2.  Introduce tu correo electrónico: **samuel.grisales@grisalistech.com**
+3.  Introduce tu contraseña: **GrisalisFlow2024!**
+4.  Haz clic en **"Iniciar sesión"**.
+
+El resto del equipo puede iniciar sesión con sus respectivos correos y la misma contraseña por defecto.
 
 Una vez dentro, serás dirigido al **Dashboard Principal**.
 
