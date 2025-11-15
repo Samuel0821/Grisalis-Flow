@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -48,7 +47,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Badge } from '@/components/ui/badge';
-import { UserProfile, deleteUserProfile, updateUserProfile } from '@/lib/firebase/firestore';
+import { UserProfile, deleteUserProfile, updateUser } from '@/lib/firebase/firestore';
 import { createUserWithEmailAndPassword } from '@/lib/firebase/auth';
 import { useAuth } from '@/hooks/use-auth';
 import { Loader2, PlusCircle, MoreHorizontal, Edit, Trash2 } from 'lucide-react';
@@ -64,6 +63,7 @@ const roleBadges: Record<UserProfile['role'], 'destructive' | 'secondary'> = {
 export function UserManagement({
   initialUsers,
   onUserCreated,
+  onUsersReset,
 }: {
   initialUsers: UserProfile[];
   onUserCreated: (user: UserProfile) => void;
@@ -135,6 +135,7 @@ export function UserManagement({
 
   // Edit form state
   const [editDisplayName, setEditDisplayName] = useState('');
+  const [editEmail, setEditEmail] = useState('');
   const [editRole, setEditRole] = useState<'admin' | 'member'>('member');
 
   const handleDeleteUser = async (userToDelete: UserProfile) => {
@@ -152,6 +153,7 @@ export function UserManagement({
   const openEditDialog = (user: UserProfile) => {
     setUserToEdit(user);
     setEditDisplayName(user.displayName || '');
+    setEditEmail(user.email);
     setEditRole(user.role);
     setIsEditDialogOpen(true);
   }
@@ -162,19 +164,24 @@ export function UserManagement({
 
     setIsSubmitting(true);
     const updateData = {
+        uid: userToEdit.id,
         displayName: editDisplayName,
+        email: editEmail,
         role: editRole
     };
 
     try {
-        await updateUserProfile(userToEdit.id, updateData, { uid: adminUser.uid, displayName: adminUser.displayName });
+        const result = await updateUser(updateData);
+        if (result.error) {
+          throw new Error(result.error);
+        }
         setUsers(prev => prev.map(u => u.id === userToEdit.id ? { ...u, ...updateData } : u));
         toast({ title: "Usuario actualizado", description: `Se han guardado los cambios para ${editDisplayName}.`});
         setIsEditDialogOpen(false);
         setUserToEdit(null);
-    } catch (error) {
+    } catch (error: any) {
         console.error("Error updating user:", error);
-        toast({ variant: 'destructive', title: "Error", description: "No se pudo actualizar el usuario." });
+        toast({ variant: 'destructive', title: "Error", description: `No se pudo actualizar el usuario: ${error.message}` });
     } finally {
         setIsSubmitting(false);
     }
@@ -338,7 +345,7 @@ export function UserManagement({
             <DialogHeader>
               <DialogTitle>Editar Usuario</DialogTitle>
               <DialogDescription>
-                Modifica el nombre y el rol del usuario.
+                Modifica los datos del perfil del usuario.
               </DialogDescription>
             </DialogHeader>
             <div className="grid gap-4 py-4">
@@ -352,14 +359,13 @@ export function UserManagement({
                 />
               </div>
                <div className="space-y-2">
-                <Label htmlFor="edit-email">Email (solo lectura)</Label>
+                <Label htmlFor="edit-email">Email</Label>
                 <Input
                   id="edit-email"
                   type="email"
-                  value={userToEdit?.email || ''}
-                  readOnly
-                  disabled
-                  className="bg-muted"
+                  value={editEmail}
+                  onChange={(e) => setEditEmail(e.target.value)}
+                  disabled={isSubmitting}
                 />
               </div>
               <div className="space-y-2">
@@ -394,4 +400,3 @@ export function UserManagement({
     </div>
   );
 }
-

@@ -21,9 +21,11 @@ import {
   setDoc,
   limit,
 } from 'firebase/firestore';
+import { getFunctions, httpsCallable } from 'firebase/functions';
 import { initializeFirebase } from '@/firebase';
 
 const { firestore: db, firebaseApp } = initializeFirebase();
+const functions = getFunctions(firebaseApp);
 
 
 export interface UserProfile {
@@ -192,22 +194,14 @@ export const getUserProfile = async (userId: string): Promise<UserProfile | null
     }
 }
 
-export const updateUserProfile = async (userId: string, data: Partial<Pick<UserProfile, 'displayName' | 'role'>>, admin: { uid: string, displayName: string | null }): Promise<void> => {
+export const updateUser = async (data: { uid: string, email: string, displayName: string, role: string }): Promise<{ message?: string; error?: string; }> => {
     try {
-        const userProfileRef = doc(db, 'userProfiles', userId);
-        await updateDoc(userProfileRef, data);
-
-        await createAuditLog({
-            userId: admin.uid,
-            userName: admin.displayName || 'Admin',
-            action: `Actualizó el perfil del usuario ${data.displayName}`,
-            entity: 'user',
-            entityId: userId,
-            details: data,
-        });
-    } catch (error) {
-        console.error("Error updating user profile:", error);
-        throw new Error("No se pudo actualizar el perfil del usuario.");
+        const updateUserFunction = httpsCallable(functions, 'updateUser');
+        const result = await updateUserFunction(data);
+        return result.data as { message: string };
+    } catch (error: any) {
+        console.error("Error calling updateUser function:", error);
+        return { error: error.message || "Ocurrió un error desconocido." };
     }
 };
 
