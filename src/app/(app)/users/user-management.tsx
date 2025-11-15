@@ -41,7 +41,7 @@ import {
 } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { UserProfile } from '@/lib/firebase/firestore';
-import { createUserWithEmailAndPassword, deleteAllOtherUsers } from '@/lib/firebase/auth';
+import { createUserWithEmailAndPassword } from '@/lib/firebase/auth';
 import { useAuth } from '@/hooks/use-auth';
 import { Loader2, PlusCircle, ShieldAlert } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
@@ -64,9 +64,7 @@ export function UserManagement({
 }) {
   const { user: adminUser } = useAuth();
   const { toast } = useToast();
-  const [users, setUsers] = useState<UserProfile[]>(initialUsers);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isResetting, setIsResetting] = useState(false);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
 
   // Form state
@@ -129,50 +127,10 @@ export function UserManagement({
     }
   };
   
-  const handleResetUsers = async () => {
-    if (!adminUser) return;
-    setIsResetting(true);
-    try {
-        await deleteAllOtherUsers(adminUser.uid);
-        onUsersReset();
-        toast({ title: "Sistema Restablecido", description: "Todos los usuarios (excepto tú) han sido eliminados." });
-    } catch(error: any) {
-        toast({ variant: 'destructive', title: "Error al Restablecer", description: error.message });
-    } finally {
-        setIsResetting(false);
-    }
-  }
 
   return (
     <div className="space-y-4">
       <div className="flex justify-end gap-2">
-        <AlertDialog>
-          <AlertDialogTrigger asChild>
-            <Button variant="destructive">
-                {isResetting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ShieldAlert className="mr-2 h-4 w-4" />}
-              Restablecer Usuarios
-            </Button>
-          </AlertDialogTrigger>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>¿Estás absolutamente seguro?</AlertDialogTitle>
-              <AlertDialogDescription>
-                Esta acción es irreversible. Se eliminarán **TODOS** los usuarios del sistema de autenticación y de la base de datos de perfiles, **excepto tu propia cuenta de administrador**. Esto es útil para limpiar usuarios "fantasma" o empezar de cero.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>Cancelar</AlertDialogCancel>
-              <AlertDialogAction
-                className="bg-destructive hover:bg-destructive/90"
-                onClick={handleResetUsers}
-                disabled={isResetting}
-              >
-                Sí, restablecer todo
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
-
         <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
           <DialogTrigger asChild>
             <Button>

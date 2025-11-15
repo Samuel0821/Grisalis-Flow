@@ -37,7 +37,11 @@ export const createUserWithEmailAndPassword = async (
 
     if (role === 'admin') {
         const setUserRoleCallable = httpsCallable(functions, 'setUserRole');
-        await setUserRoleCallable({ userId: user.uid, role: 'admin' });
+        try {
+            await setUserRoleCallable({ userId: user.uid, role: 'admin' });
+        } catch(e) {
+            console.error("Error setting admin role, maybe function is not deployed?", e);
+        }
     }
     
     return userCredential;
