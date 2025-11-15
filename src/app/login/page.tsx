@@ -19,8 +19,8 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { getAuth, signInWithEmailAndPassword } from 'firebase/auth';
 import { Loader2, AlertTriangle, UserPlus } from 'lucide-react';
-import { createAuditLog, UserProfile } from '@/lib/firebase/firestore';
-import { doc, setDoc, serverTimestamp, getFirestore, writeBatch, collection, getDocs, query, limit } from 'firebase/firestore';
+import { createAuditLog } from '@/lib/firebase/firestore';
+import { collection, getDocs, getFirestore, limit, query } from 'firebase/firestore';
 import { createUserWithEmailAndPassword as createAuthUser } from '@/lib/firebase/auth';
 
 
@@ -236,6 +236,11 @@ export default function LoginPage() {
               </Button>
             </form>
           </CardContent>
+           <CardFooter>
+            <p className="text-xs text-muted-foreground text-center w-full">
+              Si aún no tienes asignado un usuario, comunicate con el administrador
+            </p>
+          </CardFooter>
         </Card>
       </div>
     </main>
