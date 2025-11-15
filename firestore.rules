@@ -32,9 +32,10 @@ service cloud.firestore {
     match /userProfiles/{userId} {
       // Allow users to read their own profile. Admins can read any.
       allow get: if isOwner(userId) || isAdmin();
-      // Allow any signed-in user to list other users (for adding to projects)
-      // Admins can also list users.
-      allow list: if isSignedIn();
+      
+      // Allow authenticated users to list other users (for adding to projects). Admins can also list.
+      // Allow unauthenticated list only to check for admin existence.
+      allow list: if isSignedIn() || request.query.where.role == 'admin';
       
       // Allow a user to create their own profile upon sign-up with 'member' role,
       // OR allow the initial admin user to be created.

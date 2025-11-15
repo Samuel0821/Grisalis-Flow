@@ -156,7 +156,6 @@ export interface AuditLog extends DocumentData {
 }
 
 export interface ProjectMember extends DocumentData {
-    id: string;
     userId: string;
     projectId: string;
     role: 'owner' | 'member';
@@ -166,6 +165,20 @@ export interface ProjectMember extends DocumentData {
 
 
 // ---- User Profile Functions ----
+
+export const doesAdminExist = async (): Promise<boolean> => {
+    try {
+        const q = query(collection(db, 'userProfiles'), where('role', '==', 'admin'), limit(1));
+        const querySnapshot = await getDocs(q);
+        return !querySnapshot.empty;
+    } catch (error) {
+        console.error("Error checking if admin exists:", error);
+        // This might fail if rules prevent unauthenticated access.
+        // We throw to let the caller handle it.
+        throw new Error('Could not check for admin existence.');
+    }
+}
+
 export const getAllUsers = async (): Promise<UserProfile[]> => {
     try {
         const usersRef = collection(db, 'userProfiles');
@@ -273,30 +286,19 @@ export const createProject = async (
  */
 export const getProjects = async (userId?: string): Promise<Project[]> => {
   try {
-    // First, check if the user is an admin
     if (userId) {
         const userProfile = await getUserProfile(userId);
         if (userProfile?.role === 'admin') {
             const projectsQuery = query(collection(db, 'projects'), orderBy('createdAt', 'desc'));
             const projectsSnapshot = await getDocs(projectsQuery);
-            const projects: Project[] = [];
-            projectsSnapshot.forEach((doc) => {
-                projects.push({ id: doc.id, ...doc.data() } as Project);
-            });
-            return projects;
+            return projectsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Project));
         }
     } else {
-         // If no user ID, assume it's for a non-user specific context, and return all
-        const projectsQuery = query(collection(db, 'projects'), orderBy('createdAt', 'desc'));
-        const projectsSnapshot = await getDocs(projectsQuery);
-        const projects: Project[] = [];
-        projectsSnapshot.forEach((doc) => {
-            projects.push({ id: doc.id, ...doc.data() } as Project);
-        });
-        return projects;
+         const projectsQuery = query(collection(db, 'projects'), orderBy('createdAt', 'desc'));
+         const projectsSnapshot = await getDocs(projectsQuery);
+         return projectsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Project));
     }
 
-    // If not an admin, proceed with the original logic of finding projects by membership
     const memberQuerySnapshot = await getDocs(query(collectionGroup(db, 'members'), where('userId', '==', userId)));
     const projectIds = memberQuerySnapshot.docs.map(doc => doc.data().projectId);
 
@@ -386,28 +388,24 @@ export const deleteProject = async (projectId: string, projectName: string, user
     const projectRef = doc(db, 'projects', projectId);
     batch.delete(projectRef);
 
-    // Delete members subcollection
     const membersQuery = query(collection(db, 'projects', projectId, 'members'));
     const membersSnapshot = await getDocs(membersQuery);
     membersSnapshot.forEach((memberDoc) => {
         batch.delete(memberDoc.ref);
     });
 
-    // Find and delete associated tasks
     const tasksQuery = query(collection(db, 'tasks'), where('projectId', '==', projectId));
     const tasksSnapshot = await getDocs(tasksQuery);
     tasksSnapshot.forEach((taskDoc) => {
       batch.delete(taskDoc.ref);
     });
 
-    // Find and delete associated bugs
     const bugsQuery = query(collection(db, 'bugs'), where('projectId', '==', projectId));
     const bugsSnapshot = await getDocs(bugsQuery);
     bugsSnapshot.forEach((bugDoc) => {
       batch.delete(bugDoc.ref);
     });
     
-    // Find and delete associated time logs
     const timeLogsQuery = query(collection(db, 'timeLogs'), where('projectId', '==', projectId));
     const timeLogsSnapshot = await getDocs(timeLogsQuery);
     timeLogsSnapshot.forEach((logDoc) => {
@@ -438,7 +436,7 @@ export const getProjectMembers = async (projectId: string): Promise<ProjectMembe
         const querySnapshot = await getDocs(membersRef);
         const members: ProjectMember[] = [];
         querySnapshot.forEach((doc) => {
-            members.push({ id: doc.id, ...doc.data() } as ProjectMember);
+            members.push({ ...doc.data() } as ProjectMember);
         });
         return members;
     } catch (error) {

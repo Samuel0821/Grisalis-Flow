@@ -80,8 +80,7 @@ export function ProjectSettings({ project }: { project: Project }) {
       };
       await addProjectMember(project.id!, newMember, {uid: user.uid, displayName: user.displayName});
       
-      const newMemberWithId = { ...newMember, id: selectedUser.id };
-      setMembers(prev => [...prev, newMemberWithId as ProjectMember]);
+      setMembers(prev => [...prev, newMember as ProjectMember]);
       setSelectedUserId('');
       toast({ title: 'Success', description: `${selectedUser.displayName || selectedUser.email} has been added to the project.`});
 

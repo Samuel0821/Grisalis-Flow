@@ -19,7 +19,7 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
 import { Loader2, AlertTriangle, UserPlus } from 'lucide-react';
-import { createAuditLog } from '@/lib/firebase/firestore';
+import { createAuditLog, doesAdminExist } from '@/lib/firebase/firestore';
 import { doc, setDoc, serverTimestamp, getFirestore, writeBatch, collection } from 'firebase/firestore';
 
 
@@ -31,9 +31,31 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [isSeeding, setIsSeeding] = useState(false);
   
-  // We will assume setup might be needed and let the button logic handle it.
-  const [isSetupNeeded, setIsSetupNeeded] = useState(true);
-  const [isCheckingSetup, setIsCheckingSetup] = useState(false);
+  const [isSetupNeeded, setIsSetupNeeded] = useState(false);
+  const [isCheckingSetup, setIsCheckingSetup] = useState(true);
+
+
+  useEffect(() => {
+    const checkAdmin = async () => {
+      setIsCheckingSetup(true);
+      try {
+        const adminExists = await doesAdminExist();
+        setIsSetupNeeded(!adminExists);
+      } catch (error) {
+        console.error("Error checking for admin user:", error);
+        // Fallback: If we can't check, assume setup is not needed to prevent locking out.
+        setIsSetupNeeded(false); 
+        toast({
+          variant: 'destructive',
+          title: 'Error de Verificación',
+          description: 'No se pudo verificar la configuración del administrador. Por favor, contacta a soporte.'
+        })
+      } finally {
+        setIsCheckingSetup(false);
+      }
+    };
+    checkAdmin();
+  }, [toast]);
 
 
   const handleSignIn = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -60,7 +82,6 @@ export default function LoginPage() {
     } catch (error) {
       console.error(error);
       
-      // We don't have a user ID on failed login, so we log what we can.
       await createAuditLog({
         userId: 'anonymous',
         userName: email,
@@ -88,14 +109,11 @@ export default function LoginPage() {
     const auth = getAuth();
 
     try {
-        // 1. Create user in Firebase Auth
         const userCredential = await createUserWithEmailAndPassword(auth, adminEmail, adminPassword);
         const user = userCredential.user;
 
-        // 2. Use a batch write for atomic operation
         const batch = writeBatch(db);
 
-        // 3. Create user profile in Firestore
         const userProfileRef = doc(db, 'userProfiles', user.uid);
         const userProfileData = {
             email: user.email!,
@@ -105,7 +123,6 @@ export default function LoginPage() {
         };
         batch.set(userProfileRef, userProfileData);
 
-        // 4. Create initial audit log
         const auditLogRef = doc(collection(db, 'auditLogs'));
         const auditLogData = {
              userId: user.uid,
@@ -118,14 +135,13 @@ export default function LoginPage() {
         };
         batch.set(auditLogRef, auditLogData);
 
-        // 5. Commit the batch
         await batch.commit();
 
         toast({
             title: '¡Administrador Creado!',
             description: 'Tu usuario administrador ha sido configurado. Ahora puedes iniciar sesión.',
         });
-        setIsSetupNeeded(false); // Hide the setup button
+        setIsSetupNeeded(false);
 
     } catch (error: any) {
         if (error.code === 'auth/email-already-in-use') {
@@ -165,7 +181,11 @@ export default function LoginPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            {isSetupNeeded && !isCheckingSetup && (
+            {isCheckingSetup ? (
+              <div className="flex justify-center items-center h-24">
+                <Loader2 className="animate-spin text-muted-foreground" />
+              </div>
+            ) : isSetupNeeded && (
                <Card className="mb-6 bg-yellow-50 border-yellow-200">
                 <CardHeader>
                     <CardTitle className="flex items-center gap-2 text-yellow-900 text-lg">
