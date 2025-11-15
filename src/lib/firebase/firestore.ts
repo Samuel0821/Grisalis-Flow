@@ -1033,13 +1033,14 @@ export const createSprint = async (
  */
 export const getSprintsForProject = async (projectId: string): Promise<Sprint[]> => {
   try {
-    const q = query(collection(db, 'sprints'), where('projectId', '==', projectId), orderBy('startDate', 'desc'));
+    const q = query(collection(db, 'sprints'), where('projectId', '==', projectId));
     const querySnapshot = await getDocs(q);
     const sprints: Sprint[] = [];
     querySnapshot.forEach((doc) => {
       sprints.push({ id: doc.id, ...doc.data() } as Sprint);
     });
-    return sprints;
+    // Sort on the client-side
+    return sprints.sort((a, b) => b.startDate.toDate().getTime() - a.startDate.toDate().getTime());
   } catch (error) {
     console.error('Error getting sprints: ', error);
     throw new Error('Could not get sprints.');
