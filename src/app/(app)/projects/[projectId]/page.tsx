@@ -2,6 +2,7 @@
 'use client';
 
 import { useEffect, useState, useMemo, useCallback } from 'react';
+import { useParams } from 'next/navigation';
 import { getProject, Project, getTasks, Task, getSprintsForProject, Sprint, getProjectMembers, ProjectMember, SprintStatus, updateSprintStatus } from '@/lib/firebase/firestore';
 import { useUser } from '@/firebase';
 import { Loader2 } from 'lucide-react';
@@ -12,8 +13,10 @@ import { ProjectSettings } from './project-settings';
 import { ProjectDashboard } from './project-dashboard';
 import { useToast } from '@/hooks/use-toast';
 
-export default function ProjectDetailsPage({ params }: { params: { projectId: string } }) {
+export default function ProjectDetailsPage() {
   const { user } = useUser();
+  const params = useParams();
+  const projectId = params.projectId as string;
   const { toast } = useToast();
   const [project, setProject] = useState<Project | null>(null);
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -23,17 +26,17 @@ export default function ProjectDetailsPage({ params }: { params: { projectId: st
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (user && params.projectId) {
+    if (user && projectId) {
       const fetchProjectData = async () => {
         setLoading(true);
         try {
-          const projectData = await getProject(params.projectId);
+          const projectData = await getProject(projectId);
           if (projectData) {
               setProject(projectData);
               const [taskData, sprintData, memberData] = await Promise.all([
-                  getTasks(params.projectId),
-                  getSprintsForProject(params.projectId),
-                  getProjectMembers(params.projectId)
+                  getTasks(projectId),
+                  getSprintsForProject(projectId),
+                  getProjectMembers(projectId)
               ]);
               setTasks(taskData);
               setSprints(sprintData);
@@ -50,7 +53,7 @@ export default function ProjectDetailsPage({ params }: { params: { projectId: st
       };
       fetchProjectData();
     }
-  }, [user, params.projectId]);
+  }, [user, projectId]);
 
   const initialTasks = useMemo(() => tasks, [tasks]);
   const initialSprints = useMemo(() => sprints.sort((a,b) => b.startDate.toDate().getTime() - a.startDate.toDate().getTime()), [sprints]);
