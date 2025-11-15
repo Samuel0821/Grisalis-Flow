@@ -14,7 +14,7 @@ exports.deleteUsers = functions.https.onCall(async (request) => {
 
   // Verify the caller is an admin using custom claims.
   if (request.auth.token.admin !== true) {
-    throw new functions.httpss.HttpsError(
+    throw new functions.https.HttpsError(
       "permission-denied",
       "Solo los administradores pueden ejecutar esta acción."
     );
@@ -56,7 +56,7 @@ exports.deleteUsers = functions.https.onCall(async (request) => {
 
   } catch (error) {
     console.error("Error deleting users:", error);
-    throw new functions.httpss.HttpsError(
+    throw new functions.https.HttpsError(
       "internal",
       "Ocurrió un error al eliminar los usuarios.",
       error
