@@ -99,7 +99,7 @@ service cloud.firestore {
     
     match /timeLogs/{timeLogId} {
       // Users can only read/write their own time logs. Admins can read all.
-      allow read: if isOwner(get(/databases/$(database)/documents/timeLogs/$(timeLogId)).data.userId) || isAdmin();
+      allow get, list: if isOwner(get(/databases/$(database)/documents/timeLogs/$(timeLogId)).data.userId) || isAdmin();
       allow write: if isOwner(request.resource.data.userId);
     }
 
@@ -116,7 +116,7 @@ service cloud.firestore {
         // GET: A user can get their own notification, or an admin can get any.
         allow get: if isOwner(resource.data.userId) || isAdmin();
         // LIST: A user can list ONLY their own notifications. Admins can list all.
-        allow list: if (request.query.where.userId == request.auth.uid) || isAdmin();
+        allow list: if (request.query.where[0] == ['userId', '==', request.auth.uid]) || isAdmin();
         // WRITE: Only the system can create notifications. Users can update their own to mark as read.
         allow create: if false;
         allow update: if isOwner(get(/databases/$(database)/documents/notifications/$(notificationId)).data.userId) || isAdmin();
@@ -125,7 +125,7 @@ service cloud.firestore {
 
     match /auditLogs/{logId} {
         allow create: if isSignedIn();
-        allow read: if isAdmin();
+        allow get, list: if isAdmin();
         allow update, delete: if false;
     }
   }
