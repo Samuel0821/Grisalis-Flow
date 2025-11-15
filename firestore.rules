@@ -6,27 +6,32 @@ service cloud.firestore {
     function isSignedIn() {
       return request.auth != null;
     }
+
     function isOwner(userId) {
       return request.auth.uid == userId;
     }
-    function getUserRole(userId) {
-      return get(/databases/$(database)/documents/userProfiles/$(userId)).data.role;
+
+    function getUserData(userId) {
+        return get(/databases/$(database)/documents/userProfiles/$(userId)).data;
     }
+
     function isAdmin() {
-      return isSignedIn() && getUserRole(request.auth.uid) == 'admin';
+      return isSignedIn() && getUserData(request.auth.uid).role == 'admin';
     }
+
     function isProjectMember(projectId) {
       return isSignedIn() && exists(/databases/$(database)/documents/projects/$(projectId)/members/$(request.auth.uid));
     }
+
     function isProjectOwner(projectId) {
-        return isSignedIn() && get(/databases/$(database)/documents/projects/$(projectId)/members/$(request.auth.uid)).data.role == 'owner';
+      return isSignedIn() && get(/databases/$(database)/documents/projects/$(projectId)/members/$(request.auth.uid)).data.role == 'owner';
     }
 
     // User Profiles
     match /userProfiles/{userId} {
       allow get: if isOwner(userId) || isAdmin();
       allow list: if isSignedIn();
-      allow create: if (isOwner(userId) && request.resource.data.role == 'member') || request.resource.data.role == 'admin';
+      allow create: if (isOwner(userId) && request.resource.data.role == 'member') || (isAdmin() && request.resource.data.role == 'admin');
       allow update, delete: if isAdmin();
     }
 
@@ -38,8 +43,9 @@ service cloud.firestore {
       allow delete: if isProjectOwner(projectId) || isAdmin();
 
       match /members/{userId} {
-        allow get: if isProjectMember(projectId) || isAdmin();
-        allow list: if isProjectMember(projectId) || isAdmin();
+        // A project member or admin can get/list any other member in that project
+        allow read: if isProjectMember(projectId) || isAdmin();
+        // Only a project owner or admin can add/remove members
         allow write: if isProjectOwner(projectId) || isAdmin();
       }
     }
@@ -81,10 +87,11 @@ service cloud.firestore {
 
     // Wiki
     match /wiki/{wikiPageId} {
-      allow read, write: if isSignedIn() || isAdmin();
+      allow read: if isSignedIn();
+      allow write: if isSignedIn();
 
       match /versions/{versionId} {
-        allow read: if isSignedIn() || isAdmin();
+        allow read: if isSignedIn();
         allow write: if false; // Versions are immutable
       }
     }
@@ -92,10 +99,7 @@ service cloud.firestore {
     // Notifications
     match /notifications/{notificationId} {
       allow get: if isOwner(resource.data.userId) || isAdmin();
-      // Allow a user to list THEIR OWN notifications, or an admin to list any.
       allow list: if (request.query.where[0] == ['userId', '==', request.auth.uid]) || isAdmin();
-      // Only the system (backend functions) should create notifications.
-      // Users can update their own to mark as read.
       allow create: if false; 
       allow update: if isOwner(get(/databases/$(database)/documents/notifications/$(notificationId)).data.userId);
       allow delete: if false;
