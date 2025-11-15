@@ -11,10 +11,8 @@ import {
 } from 'firebase/auth';
 import { initializeFirebase } from '@/firebase';
 import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
-import { getFunctions, httpsCallable } from 'firebase/functions';
 
-const { firestore, auth, firebaseApp } = initializeFirebase();
-const functions = getFunctions(firebaseApp);
+const { firestore, auth } = initializeFirebase();
 
 export const createUserWithEmailAndPassword = async (
   email: string,
@@ -22,10 +20,13 @@ export const createUserWithEmailAndPassword = async (
   displayName: string,
   role: 'admin' | 'member' = 'member'
 ) => {
+    // This function can throw 'auth/email-already-in-use' which should be caught by the caller.
     const userCredential = await firebaseCreateUserWithEmailAndPassword(auth, email, password);
     const user = userCredential.user;
 
     const userProfileRef = doc(firestore, 'userProfiles', user.uid);
+    // This setDoc creates the user profile that makes the user visible in the app.
+    // It is protected by Firestore rules.
     await setDoc(userProfileRef, {
         id: user.uid,
         email: user.email,
@@ -33,16 +34,6 @@ export const createUserWithEmailAndPassword = async (
         role: role,
         createdAt: serverTimestamp(),
     });
-
-    if (role === 'admin') {
-        try {
-            const setUserRoleCallable = httpsCallable(functions, 'setUserRole');
-            await setUserRoleCallable({ userId: user.uid, role: 'admin' });
-        } catch(e) {
-            console.error("Error setting admin role, maybe function is not deployed?", e);
-            // Optionally handle the error, e.g., by deleting the created user if setting the role is critical
-        }
-    }
     
     return userCredential;
 }

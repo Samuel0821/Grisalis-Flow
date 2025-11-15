@@ -31,9 +31,11 @@ service cloud.firestore {
     match /userProfiles/{userId} {
       allow get: if isOwner(userId) || isAdmin();
       allow list: if isAdmin();
+      // Allow user creation only if the requester is an admin
       allow create: if isAdmin();
       allow update: if isOwner(userId) || isAdmin();
-      allow delete: if false; // No one can delete user profiles for now
+      // Allow deletion only if the requester is an admin and not deleting themselves
+      allow delete: if isAdmin() && request.auth.uid != userId;
     }
 
     match /projects/{projectId} {

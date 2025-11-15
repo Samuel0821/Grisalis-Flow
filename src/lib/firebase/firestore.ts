@@ -25,7 +25,6 @@ import { initializeFirebase } from '@/firebase';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 
 const { firestore: db, firebaseApp } = initializeFirebase();
-const functions = getFunctions(firebaseApp);
 
 
 export interface UserProfile {
@@ -195,11 +194,18 @@ export const getUserProfile = async (userId: string): Promise<UserProfile | null
 }
 
 export const deleteUserByAdmin = async (userId: string): Promise<void> => {
-    const deleteUserCallable = httpsCallable(functions, 'deleteUser');
     try {
-        await deleteUserCallable({ userId });
+        const userProfileRef = doc(db, 'userProfiles', userId);
+        // This operation is protected by Firestore Security Rules.
+        // It will only succeed if the requesting user is an admin.
+        await deleteDoc(userProfileRef);
+        // Note: This does NOT delete the user from Firebase Auth, only from the app's user list.
+        // This is a security measure to prevent client-side deletion of auth users without more complex server-side logic.
+        // The user will no longer be visible or able to log in effectively to the app's protected routes.
     } catch (error) {
-        console.error("Error calling deleteUser function:", error);
+        console.error("Error deleting user profile:", error);
+        // The error will be caught by the caller and a toast will be shown.
+        // Re-throwing allows the caller to handle it.
         throw new Error("No se pudo eliminar el usuario.");
     }
 };
