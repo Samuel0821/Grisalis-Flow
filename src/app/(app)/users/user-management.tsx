@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -39,11 +39,17 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { Badge } from '@/components/ui/badge';
-import { UserProfile } from '@/lib/firebase/firestore';
+import { UserProfile, deleteUserByAdmin } from '@/lib/firebase/firestore';
 import { createUserWithEmailAndPassword } from '@/lib/firebase/auth';
 import { useAuth } from '@/hooks/use-auth';
-import { Loader2, PlusCircle, ShieldAlert } from 'lucide-react';
+import { Loader2, PlusCircle, MoreHorizontal, Edit, Trash2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -64,8 +70,13 @@ export function UserManagement({
 }) {
   const { user: adminUser } = useAuth();
   const { toast } = useToast();
+  const [users, setUsers] = useState<UserProfile[]>(initialUsers);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+
+  useEffect(() => {
+    setUsers(initialUsers);
+  }, [initialUsers]);
 
   // Form state
   const [email, setEmail] = useState('');
@@ -126,6 +137,17 @@ export function UserManagement({
       setIsSubmitting(false);
     }
   };
+
+  const handleDeleteUser = async (userToDelete: UserProfile) => {
+    try {
+        await deleteUserByAdmin(userToDelete.id);
+        setUsers(prev => prev.filter(u => u.id !== userToDelete.id));
+        toast({ title: "Usuario eliminado", description: `${userToDelete.displayName} ha sido eliminado del sistema.`});
+    } catch (error) {
+        console.error("Error deleting user:", error);
+        toast({ variant: 'destructive', title: "Error", description: "No se pudo eliminar el usuario." });
+    }
+  }
   
 
   return (
@@ -217,11 +239,12 @@ export function UserManagement({
               <TableHead>Email</TableHead>
               <TableHead>Rol</TableHead>
               <TableHead>Fecha de Creación</TableHead>
+              <TableHead className="text-right">Acciones</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {initialUsers.length > 0 ? (
-              initialUsers.map((u) => (
+            {users.length > 0 ? (
+              users.map((u) => (
                   <TableRow key={u.id}>
                     <TableCell className="font-medium">{u.displayName}</TableCell>
                     <TableCell className="text-muted-foreground">{u.email}</TableCell>
@@ -229,13 +252,58 @@ export function UserManagement({
                       <Badge variant={roleBadges[u.role]} className="capitalize">{u.role}</Badge>
                     </TableCell>
                     <TableCell>
-                      {u.createdAt?.toDate && format(u.createdAt.toDate(), 'PPP', { locale: es })}
+                      {u.createdAt?.toDate ? format(u.createdAt.toDate(), 'PPP', { locale: es }) : 'N/A'}
+                    </TableCell>
+                    <TableCell className="text-right">
+                       {adminUser?.uid !== u.id && (
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="icon" className="h-8 w-8">
+                                    <MoreHorizontal className="h-4 w-4" />
+                                </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                                <DropdownMenuItem disabled>
+                                    <Edit className="mr-2 h-4 w-4" />
+                                    Editar
+                                </DropdownMenuItem>
+                                <AlertDialog>
+                                    <AlertDialogTrigger asChild>
+                                        <DropdownMenuItem
+                                            className="text-destructive"
+                                            onSelect={(e) => e.preventDefault()}
+                                        >
+                                            <Trash2 className="mr-2 h-4 w-4" />
+                                            Eliminar
+                                        </DropdownMenuItem>
+                                    </AlertDialogTrigger>
+                                    <AlertDialogContent>
+                                        <AlertDialogHeader>
+                                            <AlertDialogTitle>¿Estás seguro?</AlertDialogTitle>
+                                            <AlertDialogDescription>
+                                                Esta acción eliminará permanentemente al usuario <span className="font-bold">{u.displayName}</span>. Perderá todo acceso y sus datos asociados podrían quedar huérfanos. Esta acción no se puede deshacer.
+                                            </AlertDialogDescription>
+                                        </AlertDialogHeader>
+                                        <AlertDialogFooter>
+                                            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                            <AlertDialogAction
+                                                className="bg-destructive hover:bg-destructive/90"
+                                                onClick={() => handleDeleteUser(u)}
+                                            >
+                                                Sí, eliminar usuario
+                                            </AlertDialogAction>
+                                        </AlertDialogFooter>
+                                    </AlertDialogContent>
+                                </AlertDialog>
+                            </DropdownMenuContent>
+                        </DropdownMenu>
+                       )}
                     </TableCell>
                   </TableRow>
                 ))
             ) : (
               <TableRow>
-                <TableCell colSpan={4} className="h-24 text-center">
+                <TableCell colSpan={5} className="h-24 text-center">
                   No se encontraron usuarios.
                 </TableCell>
               </TableRow>

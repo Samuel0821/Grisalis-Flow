@@ -22,8 +22,10 @@ import {
   limit,
 } from 'firebase/firestore';
 import { initializeFirebase } from '@/firebase';
+import { getFunctions, httpsCallable } from 'firebase/functions';
 
-const { firestore: db } = initializeFirebase();
+const { firestore: db, firebaseApp } = initializeFirebase();
+const functions = getFunctions(firebaseApp);
 
 
 export interface UserProfile {
@@ -191,6 +193,16 @@ export const getUserProfile = async (userId: string): Promise<UserProfile | null
         throw new Error('No se pudo obtener el perfil de usuario.');
     }
 }
+
+export const deleteUserByAdmin = async (userId: string): Promise<void> => {
+    const deleteUserCallable = httpsCallable(functions, 'deleteUser');
+    try {
+        await deleteUserCallable({ userId });
+    } catch (error) {
+        console.error("Error calling deleteUser function:", error);
+        throw new Error("No se pudo eliminar el usuario.");
+    }
+};
 
 export const createAuditLog = async (logData: Omit<AuditLog, 'id' | 'timestamp'>) => {
     try {
