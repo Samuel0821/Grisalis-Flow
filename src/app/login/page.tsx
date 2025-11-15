@@ -189,7 +189,7 @@ export default function LoginPage() {
               <div className="flex justify-center items-center h-24">
                 <Loader2 className="animate-spin text-muted-foreground" />
               </div>
-            ) : isSetupNeeded && (
+            ) : isSetupNeeded ? (
                <Card className="mb-6 bg-yellow-50 border-yellow-200">
                 <CardHeader>
                     <CardTitle className="flex items-center gap-2 text-yellow-900 text-lg">
@@ -220,7 +220,7 @@ export default function LoginPage() {
                     </Button>
                 </CardContent>
                </Card>
-            )}
+            ) : null}
 
             <form onSubmit={handleSignIn} className="space-y-4">
               <div className="space-y-2">
