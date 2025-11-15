@@ -1,3 +1,4 @@
+
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -13,9 +14,6 @@ service cloud.firestore {
     }
     function isAdmin() {
       return isSignedIn() && getUserRole(request.auth.uid) == 'admin';
-    }
-    function isMember() {
-      return isSignedIn() && getUserRole(request.auth.uid) == 'member';
     }
     
     // Function to check if a user is a member of a specific project.
@@ -45,9 +43,7 @@ service cloud.firestore {
 
     match /projects/{projectId} {
       // Only project members or admins can read project data.
-      allow get: if isProjectMember(projectId) || isAdmin();
-      // Admins can list all projects. Regular users can list projects they are members of (filtered on client).
-      allow list: if isSignedIn() || isAdmin();
+      allow get, list: if isProjectMember(projectId) || isAdmin();
       // Only authenticated users can create projects.
       allow create: if isSignedIn();
       // Only project owners or admins can update a project.
@@ -125,7 +121,8 @@ service cloud.firestore {
 
     match /auditLogs/{logId} {
         allow create: if isSignedIn();
-        allow get, list: if isAdmin();
+        allow read: if isAdmin();
+        allow list: if isAdmin();
         allow update, delete: if false;
     }
   }
