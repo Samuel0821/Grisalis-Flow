@@ -1,3 +1,4 @@
+
 const functions = require("firebase-functions");
 const admin = require("firebase-admin");
 
@@ -19,7 +20,7 @@ exports.setUserRole = functions.https.onCall(async (data, context) => {
 
   // Check if the caller is an admin by looking at their custom claims.
   const callerClaims = context.auth.token;
-  if (callerClaims.admin !== true) {
+  if (callerClaims.role !== "admin") {
     throw new functions.https.HttpsError(
       "permission-denied",
       "Must be an administrator to set user roles."
@@ -74,7 +75,7 @@ exports.deleteUser = functions.https.onCall(async (data, context) => {
   }
   
   const callerClaims = context.auth.token;
-  if (callerClaims.admin !== true) {
+  if (callerClaims.role !== "admin") {
     console.log("Permission denied. Caller claims:", callerClaims);
     throw new functions.https.HttpsError(
       "permission-denied",
