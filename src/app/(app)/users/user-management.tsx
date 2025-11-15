@@ -130,7 +130,7 @@ export function UserManagement({
       console.error('Error creating user:', error);
       let description = 'No se pudo crear el usuario. Por favor, inténtalo de nuevo.';
       if (error.code === 'auth/email-already-in-use') {
-        description = 'Este correo electrónico ya está en uso.';
+        description = 'Este correo electrónico ya está en uso. Elimínelo manualmente desde la Consola de Firebase.';
       } else if (error.code === 'auth/invalid-email') {
         description = 'El formato del correo electrónico no es válido.';
       }
@@ -147,12 +147,14 @@ export function UserManagement({
   const handleDeleteUser = async (userToDelete: UserProfile) => {
     if (!adminUser) return;
     try {
+        // This will now delete the Firestore document, which is protected by security rules.
+        // It will not delete the user from Firebase Auth.
         await deleteUserProfile(userToDelete.id, { uid: adminUser.uid, displayName: adminUser.displayName });
         setUsers(prev => prev.filter(u => u.id !== userToDelete.id));
-        toast({ title: "Usuario eliminado", description: `${userToDelete.displayName} ha sido eliminado del sistema.`});
+        toast({ title: "Perfil de usuario eliminado", description: `${userToDelete.displayName} ha sido eliminado de la aplicación.`});
     } catch (error) {
-        console.error("Error deleting user:", error);
-        toast({ variant: 'destructive', title: "Error", description: "No se pudo eliminar el usuario." });
+        console.error("Error deleting user profile:", error);
+        toast({ variant: 'destructive', title: "Error", description: "No se pudo eliminar el perfil del usuario." });
     }
   }
   
@@ -320,7 +322,7 @@ export function UserManagement({
                                         <AlertDialogHeader>
                                             <AlertDialogTitle>¿Estás seguro?</AlertDialogTitle>
                                             <AlertDialogDescription>
-                                                Esta acción eliminará permanentemente al usuario <span className="font-bold">{u.displayName}</span>. Perderá todo acceso y sus datos asociados podrían quedar huérfanos. Esta acción no se puede deshacer.
+                                                Esta acción eliminará el perfil de <span className='font-bold'>{u.displayName}</span> de la aplicación. Perderá acceso a sus datos. Esta acción no elimina al usuario del sistema de autenticación de Firebase.
                                             </AlertDialogDescription>
                                         </AlertDialogHeader>
                                         <AlertDialogFooter>
@@ -329,7 +331,7 @@ export function UserManagement({
                                                 className="bg-destructive hover:bg-destructive/90"
                                                 onClick={() => handleDeleteUser(u)}
                                             >
-                                                Sí, eliminar usuario
+                                                Sí, eliminar perfil
                                             </AlertDialogAction>
                                         </AlertDialogFooter>
                                     </AlertDialogContent>
