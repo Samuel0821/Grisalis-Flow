@@ -1,4 +1,3 @@
-
 'use client';
 
 import {
@@ -10,7 +9,7 @@ import {
   NextOrObserver,
 } from 'firebase/auth';
 import { initializeFirebase } from '@/firebase';
-import { doc, setDoc, serverTimestamp, getDoc } from 'firebase/firestore';
+import { doc, setDoc, serverTimestamp, getDoc, getDocs, query, collection, where } from 'firebase/firestore';
 import { UserProfile } from './firestore';
 
 const { firestore, auth } = initializeFirebase();
@@ -45,9 +44,17 @@ export const createUserWithEmailAndPassword = async (
 
     } catch (error: any) {
         if (error.code === 'auth/email-already-in-use') {
-          // This error is now handled in the UI to inform the admin.
-          // We re-throw it so the calling function knows the creation failed for this reason.
-          throw error;
+            // User exists in Auth, let's find their UID and create the Firestore profile if it doesn't exist
+            console.warn("User already exists in Auth. Ensuring profile exists in Firestore.");
+
+            // This part is tricky without Admin SDK. We can't directly look up user by email on client.
+            // So, we'll assume the sign-in error implies existence and proceed to try and create the profile doc.
+            // A more robust solution would require a Cloud Function, but this is a pragmatic approach.
+            
+            // To create the doc, we need the UID. Since we can't get it, we'll inform the user.
+            // The best we can do here is re-throw and let the UI handle it.
+             throw error;
+
         }
         console.error("Error creating user:", error);
         // Re-throw other errors

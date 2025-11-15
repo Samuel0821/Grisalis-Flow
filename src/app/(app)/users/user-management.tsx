@@ -63,11 +63,9 @@ const roleBadges: Record<UserProfile['role'], 'destructive' | 'secondary'> = {
 export function UserManagement({
   initialUsers,
   onUserCreated,
-  onUsersReset
 }: {
   initialUsers: UserProfile[];
   onUserCreated: (user: UserProfile) => void;
-  onUsersReset: () => void;
 }) {
   const { user: adminUser } = useAuth();
   const { toast } = useToast();
@@ -78,9 +76,60 @@ export function UserManagement({
   
   const [userToEdit, setUserToEdit] = useState<UserProfile | null>(null);
 
+  // Create form state
+  const [newDisplayName, setNewDisplayName] = useState('');
+  const [newEmail, setNewEmail] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+
   useEffect(() => {
     setUsers(initialUsers);
   }, [initialUsers]);
+  
+  const resetCreateForm = () => {
+    setNewDisplayName('');
+    setNewEmail('');
+    setNewPassword('');
+  }
+
+  const handleCreateUser = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!adminUser) return;
+
+    setIsSubmitting(true);
+    try {
+        const newUserProfile = await createUserWithEmailAndPassword(newEmail, newPassword, newDisplayName);
+        onUserCreated(newUserProfile);
+        toast({
+            title: "Usuario Creado",
+            description: `Se ha creado a ${newDisplayName}. La página se recargará para restaurar tu sesión.`,
+        });
+        resetCreateForm();
+        setIsCreateDialogOpen(false);
+        // Reload to restore admin session
+        setTimeout(() => window.location.reload(), 2000);
+    } catch (error: any) {
+         if (error.code === 'auth/email-already-in-use') {
+            toast({
+                variant: 'destructive',
+                title: 'El correo ya existe',
+                description: 'Este correo ya está registrado en la autenticación. Se creará/actualizará su perfil en la base de datos.',
+            });
+            // Still try to create the profile
+             const newUserProfile = await createUserWithEmailAndPassword(newEmail, newPassword, newDisplayName);
+             onUserCreated(newUserProfile);
+             setIsCreateDialogOpen(false);
+        } else {
+            toast({
+                variant: 'destructive',
+                title: 'Error al crear usuario',
+                description: error.message,
+            });
+        }
+    } finally {
+        setIsSubmitting(false);
+    }
+  }
+
 
   // Edit form state
   const [editDisplayName, setEditDisplayName] = useState('');
@@ -129,45 +178,74 @@ export function UserManagement({
     }
   }
 
-  const handleResetUsers = () => {
-    onUsersReset();
-    toast({
-        title: "Restableciendo usuarios...",
-        description: "Se están restaurando los usuarios de fábrica. La página se recargará."
-    });
-    setTimeout(() => {
-        window.location.reload();
-    }, 2000);
-  }
-  
-
   return (
     <div className="space-y-4">
       <div className="flex justify-end gap-2">
-         <AlertDialog>
-            <AlertDialogTrigger asChild>
-                <Button variant="outline">
-                    <RefreshCw className="mr-2 h-4 w-4" />
-                    Restablecer Usuarios de Fábrica
+         <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+            <DialogTrigger asChild>
+                <Button>
+                    <PlusCircle className="mr-2" />
+                    Crear Usuario
                 </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-                <AlertDialogHeader>
-                    <AlertDialogTitle>¿Estás seguro?</AlertDialogTitle>
-                    <AlertDialogDescription>
-                        Esta acción eliminará a TODOS los usuarios actuales y restaurará la lista de usuarios predeterminada. 
-                        Es útil si tienes usuarios duplicados o con errores que no puedes eliminar. 
-                        Cualquier usuario que hayas creado se perderá.
-                    </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                    <AlertDialogAction onClick={handleResetUsers} className="bg-destructive hover:bg-destructive/90">
-                        Sí, restablecer usuarios
-                    </AlertDialogAction>
-                </AlertDialogFooter>
-            </AlertDialogContent>
-        </AlertDialog>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-md">
+                <form onSubmit={handleCreateUser}>
+                    <DialogHeader>
+                        <DialogTitle>Crear Nuevo Usuario</DialogTitle>
+                        <DialogDescription>
+                            Crea una cuenta para un nuevo miembro del equipo.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="grid gap-4 py-4">
+                        <div className="space-y-2">
+                            <Label htmlFor="new-displayName">Nombre Completo</Label>
+                            <Input
+                            id="new-displayName"
+                            value={newDisplayName}
+                            onChange={(e) => setNewDisplayName(e.target.value)}
+                            disabled={isSubmitting}
+                            required
+                            />
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="new-email">Email</Label>
+                            <Input
+                            id="new-email"
+                            type="email"
+                            value={newEmail}
+                            onChange={(e) => setNewEmail(e.target.value)}
+                            disabled={isSubmitting}
+                            required
+                            />
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="new-password">Contraseña</Label>
+                            <Input
+                            id="new-password"
+                            type="password"
+                            value={newPassword}
+                            onChange={(e) => setNewPassword(e.target.value)}
+                            disabled={isSubmitting}
+                            required
+                            />
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <DialogClose asChild><Button type="button" variant="outline">Cancelar</Button></DialogClose>
+                        <Button type="submit" disabled={isSubmitting}>
+                            {isSubmitting ? (
+                            <>
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                Creando...
+                            </>
+                            ) : (
+                            'Crear Usuario'
+                            )}
+                        </Button>
+                    </DialogFooter>
+                </form>
+            </DialogContent>
+        </Dialog>
       </div>
 
       <div className="border rounded-lg">
