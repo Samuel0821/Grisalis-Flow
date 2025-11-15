@@ -48,7 +48,7 @@ service cloud.firestore {
       // Only project members or admins can read project data.
       allow get: if isProjectMember(projectId) || isAdmin();
       // Admins can list all projects. Regular users can list projects they are members of (filtered on client).
-      allow list: if isSignedIn();
+      allow list: if isSignedIn() || isAdmin();
       // Only authenticated users can create projects.
       allow create: if isSignedIn();
       // Only project owners or admins can update a project.
@@ -114,11 +114,14 @@ service cloud.firestore {
     }
 
     match /notifications/{notificationId} {
-      // READ: Users can read their own notifications (list query), Admins can read any.
-      allow read: if (request.auth.uid == resource.data.userId) || isAdmin();
-      
-      // WRITE: Users can update their own notifications.
-      allow write: if (isOwner(get(/databases/$(database)/documents/notifications/$(notificationId)).data.userId)) || isAdmin();
+        // GET: A user can get their own notification, or an admin can get any.
+        allow get: if isOwner(resource.data.userId) || isAdmin();
+        // LIST: A user can list ONLY their own notifications. Admins can list all.
+        allow list: if (request.auth.uid == request.query.where.userId) || isAdmin();
+        // WRITE: Only the system can create notifications. Users can update their own to mark as read.
+        allow create: if false;
+        allow update: if isOwner(get(/databases/$(database)/documents/notifications/$(notificationId)).data.userId) || isAdmin();
+        allow delete: if false;
     }
 
     match /auditLogs/{logId} {
