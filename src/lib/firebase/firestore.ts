@@ -62,7 +62,7 @@ export interface Task extends DocumentData {
   status: TaskStatus;
   priority: TaskPriority;
   assigneeId?: string;
-  attachmentUrl?: string; // Adjunto para tareas
+  attachmentUrl?: string;
   createdBy: string;
   createdAt: any;
 }
@@ -269,12 +269,24 @@ export const createProject = async (
 };
 
 /**
- * Obtiene los proyectos en los que un usuario es miembro.
+ * Obtiene los proyectos en los que un usuario es miembro, o todos si es admin.
  */
 export const getProjects = async (userId?: string): Promise<Project[]> => {
   try {
-    if (!userId) {
-        // If no user ID, get all projects (for admin/reporting purposes)
+    // First, check if the user is an admin
+    if (userId) {
+        const userProfile = await getUserProfile(userId);
+        if (userProfile?.role === 'admin') {
+            const projectsQuery = query(collection(db, 'projects'), orderBy('createdAt', 'desc'));
+            const projectsSnapshot = await getDocs(projectsQuery);
+            const projects: Project[] = [];
+            projectsSnapshot.forEach((doc) => {
+                projects.push({ id: doc.id, ...doc.data() } as Project);
+            });
+            return projects;
+        }
+    } else {
+         // If no user ID, assume it's for a non-user specific context, and return all
         const projectsQuery = query(collection(db, 'projects'), orderBy('createdAt', 'desc'));
         const projectsSnapshot = await getDocs(projectsQuery);
         const projects: Project[] = [];
@@ -284,6 +296,7 @@ export const getProjects = async (userId?: string): Promise<Project[]> => {
         return projects;
     }
 
+    // If not an admin, proceed with the original logic of finding projects by membership
     const memberQuerySnapshot = await getDocs(query(collectionGroup(db, 'members'), where('userId', '==', userId)));
     const projectIds = memberQuerySnapshot.docs.map(doc => doc.data().projectId);
 
@@ -291,7 +304,6 @@ export const getProjects = async (userId?: string): Promise<Project[]> => {
         return [];
     }
 
-    // Firestore 'in' queries are limited to 30 elements. If more projects, split into chunks.
     const projectChunks: string[][] = [];
     for (let i = 0; i < projectIds.length; i += 30) {
       projectChunks.push(projectIds.slice(i, i + 30));
@@ -313,6 +325,7 @@ export const getProjects = async (userId?: string): Promise<Project[]> => {
     throw new Error('Could not get projects.');
   }
 };
+
 
 /**
  * Obtiene un único proyecto por su ID.
@@ -713,13 +726,16 @@ export const createBug = async (
 
     if (bugData.severity === 'critical') {
         const project = await getProject(bugData.projectId);
-        if (project && project.createdBy) {
-            await createNotification({
-                userId: project.createdBy,
-                type: 'bug_critical',
-                message: `A critical bug "${bugData.title}" has been reported in project ${project.name}.`,
-                link: `/bugs` // Or a more specific link to the bug page
-            });
+        if (project) {
+             const owner = (await getProjectMembers(bugData.projectId)).find(m => m.role === 'owner');
+             if (owner) {
+                await createNotification({
+                    userId: owner.userId,
+                    type: 'bug_critical',
+                    message: `A critical bug "${bugData.title}" has been reported in project ${project.name}.`,
+                    link: `/bugs` // Or a more specific link to the bug page
+                });
+             }
         }
     }
     

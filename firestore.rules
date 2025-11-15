@@ -30,9 +30,10 @@ service cloud.firestore {
     }
 
     match /userProfiles/{userId} {
-      // Allow users to read their own profile.
+      // Allow users to read their own profile. Admins can read any.
       allow get: if isOwner(userId) || isAdmin();
       // Allow any signed-in user to list other users (for adding to projects)
+      // Admins can also list users.
       allow list: if isSignedIn();
       
       // Allow a user to create their own profile upon sign-up with 'member' role,
@@ -46,7 +47,7 @@ service cloud.firestore {
     match /projects/{projectId} {
       // Only project members or admins can read project data.
       allow get: if isProjectMember(projectId) || isAdmin();
-      // Only authenticated users can list projects (they will be filtered on the client).
+      // Admins can list all projects. Regular users can list projects they are members of (filtered on client).
       allow list: if isSignedIn();
       // Only authenticated users can create projects.
       allow create: if isSignedIn();
@@ -67,7 +68,7 @@ service cloud.firestore {
       function getTaskProjectId() {
         return get(/databases/$(database)/documents/tasks/$(taskId)).data.projectId;
       }
-      // A user can read/write a task if they are a member of the project the task belongs to.
+      // A user can read/write a task if they are a member of the project the task belongs to, or if they are an admin.
       allow read, write: if isProjectMember(getTaskProjectId()) || isAdmin();
     }
 
@@ -75,7 +76,7 @@ service cloud.firestore {
         function getTaskProjectId() {
             return get(/databases/$(database)/documents/tasks/$(taskId)).data.projectId;
         }
-        // Anyone in the project can read/write comments.
+        // Anyone in the project or an admin can read/write comments.
         allow read, write: if isProjectMember(getTaskProjectId()) || isAdmin();
     }
 
@@ -93,7 +94,7 @@ service cloud.firestore {
       function getSprintProjectId() {
         return get(/databases/$(database)/documents/sprints/$(sprintId)).data.projectId;
       }
-      // A user can read/write a sprint if they are a member of the project the sprint belongs to.
+      // A user can read/write a sprint if they are a member of the project, or if they are an admin.
       allow read, write: if isProjectMember(getSprintProjectId()) || isAdmin();
     }
     
@@ -106,26 +107,20 @@ service cloud.firestore {
     match /wiki/{wikiPageId} {
         allow read, write: if isSignedIn();
 
-        // Rules for version history subcollection
         match /versions/{versionId} {
-            // Anyone signed in can read the history
             allow get, list: if isSignedIn();
-            // No client-side creation, update, or deletion of history.
             allow write: if false;
         }
     }
 
     match /notifications/{notificationId} {
-        // Users can only interact with their own notifications.
-        allow read, write: if isOwner(get(/databases/$(database)/documents/notifications/$(notificationId)).data.userId);
+        // Users can only interact with their own notifications. Admins can read all for auditing.
+        allow read, write: if isOwner(get(/databases/$(database)/documents/notifications/$(notificationId)).data.userId) || isAdmin();
     }
 
     match /auditLogs/{logId} {
-        // Allow write access for any signed-in user
         allow create: if isSignedIn();
-        // Allow only admins to read
         allow read: if isAdmin();
-        // Logs are immutable
         allow update, delete: if false;
     }
   }

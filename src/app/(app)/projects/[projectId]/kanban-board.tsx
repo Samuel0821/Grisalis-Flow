@@ -6,7 +6,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { PlusCircle, Loader2, ArrowUp, ArrowRight, ArrowDown, MessageSquare, Trash2, CheckSquare, Link as LinkIcon, ExternalLink } from 'lucide-react';
-import { Task, createTask, updateTask, updateTaskStatus, TaskStatus, TaskPriority, Comment, addComment, getComments, Sprint, ProjectMember, TaskType, deleteTask } from '@/lib/firebase/firestore';
+import { Task, createTask, updateTask, updateTaskStatus, TaskStatus, TaskPriority, Comment, addComment, getComments, Sprint, ProjectMember, TaskType, deleteTask, getProjectMembers } from '@/lib/firebase/firestore';
 import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
 import {
