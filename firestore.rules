@@ -1,4 +1,3 @@
-
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -34,8 +33,8 @@ service cloud.firestore {
       allow get: if isOwner(userId) || isAdmin();
       
       // Allow authenticated users to list other users (for adding to projects). Admins can also list.
-      // Allow unauthenticated list only to check for admin existence.
-      allow list: if isSignedIn() || request.query.where.role == 'admin';
+      // Allow an unauthenticated query for the sole purpose of checking if an admin user exists.
+      allow list: if isSignedIn() || (request.query.limit == 1 && request.query.offset == null);
       
       // Allow a user to create their own profile upon sign-up with 'member' role,
       // OR allow the initial admin user to be created.
