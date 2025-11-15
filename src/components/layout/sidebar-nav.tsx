@@ -54,7 +54,7 @@ export function SidebarNav() {
         <SidebarMenu>
           {navItems.map((item) => (
             <SidebarMenuItem key={item.href}>
-              <Link href={item.href}>
+              <Link href={item.href} passHref>
                 <SidebarMenuButton
                   isActive={pathname.startsWith(item.href)}
                   tooltip={{ children: item.label, side: 'right' }}
@@ -71,7 +71,7 @@ export function SidebarNav() {
         <Separator className="my-2" />
         <SidebarMenu>
           <SidebarMenuItem>
-            <Link href="/settings">
+            <Link href="/settings" passHref>
               <SidebarMenuButton
                 isActive={pathname === '/settings'}
                 tooltip={{ children: 'Configuración', side: 'right' }}
