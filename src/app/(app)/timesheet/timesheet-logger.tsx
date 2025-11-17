@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Project, Task, TimeLog, createTimeLog } from '@/lib/firebase/firestore';
+import { Project, Task, TimeLog, createTimeLog, getTasks } from '@/lib/firebase/firestore';
 import { useAuth } from '@/hooks/use-auth';
 import { Loader2, Clock } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
@@ -18,19 +18,19 @@ import { es } from 'date-fns/locale';
 
 export function TimesheetLogger({
   projects,
-  tasks,
   initialTimeLogs,
   onTimeLogCreated,
 }: {
   projects: Project[];
-  tasks: Task[];
   initialTimeLogs: TimeLog[];
   onTimeLogCreated: (log: TimeLog) => void;
 }) {
   const { user } = useAuth();
   const { toast } = useToast();
   const [timeLogs, setTimeLogs] = useState(initialTimeLogs);
+  const [tasks, setTasks] = useState<Task[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isLoadingTasks, setIsLoadingTasks] = useState(false);
 
   // Form state
   const [selectedProjectId, setSelectedProjectId] = useState('');
@@ -38,15 +38,31 @@ export function TimesheetLogger({
   const [hours, setHours] = useState('');
   const [logDescription, setLogDescription] = useState('');
 
-  const availableTasks = useMemo(() => {
-    return tasks.filter(task => task.projectId === selectedProjectId);
-  }, [selectedProjectId, tasks]);
+  useEffect(() => {
+      if (selectedProjectId) {
+          const fetchTasks = async () => {
+              setIsLoadingTasks(true);
+              setTasks([]); // Clear previous tasks
+              setSelectedTaskId(''); // Reset selected task
+              try {
+                  const projectTasks = await getTasks(selectedProjectId);
+                  setTasks(projectTasks);
+              } catch (error) {
+                  toast({ variant: 'destructive', title: 'Error', description: 'No se pudieron cargar las tareas para este proyecto.' });
+              } finally {
+                  setIsLoadingTasks(false);
+              }
+          };
+          fetchTasks();
+      }
+  }, [selectedProjectId, toast]);
 
   const resetForm = () => {
     setSelectedProjectId('');
     setSelectedTaskId('');
     setHours('');
     setLogDescription('');
+    setTasks([]);
   };
 
   const handleLogTime = async (e: React.FormEvent) => {
@@ -76,7 +92,7 @@ export function TimesheetLogger({
         description: logDescription,
       } as Omit<TimeLog, 'id' | 'date'>);
       onTimeLogCreated(newLog);
-      setTimeLogs(prev => [newLog, ...prev]);
+      setTimeLogs(prev => [newLog, ...prev].sort((a, b) => b.date.toDate().getTime() - a.date.toDate().getTime()));
       toast({ title: '¡Éxito!', description: 'Tu tiempo ha sido registrado.' });
       resetForm();
     } catch (error) {
@@ -90,6 +106,11 @@ export function TimesheetLogger({
       setIsSubmitting(false);
     }
   };
+  
+  const getTaskTitle = (taskId: string) => {
+      const task = tasks.find(t => t.id === taskId);
+      return task?.title || initialTimeLogs.find(log => log.taskId === taskId) ? '...' : 'N/A';
+  }
 
   return (
     <div className="grid gap-8 lg:grid-cols-2">
@@ -117,12 +138,14 @@ export function TimesheetLogger({
             </div>
              <div className="space-y-2">
               <Label htmlFor="task">Tarea</Label>
-              <Select onValueChange={setSelectedTaskId} value={selectedTaskId} disabled={!selectedProjectId || isSubmitting}>
+              <Select onValueChange={setSelectedTaskId} value={selectedTaskId} disabled={!selectedProjectId || isSubmitting || isLoadingTasks}>
                 <SelectTrigger id="task">
-                  <SelectValue placeholder="Selecciona una tarea" />
+                  <SelectValue placeholder={isLoadingTasks ? "Cargando tareas..." : "Selecciona una tarea"} />
                 </SelectTrigger>
                 <SelectContent>
-                   {availableTasks.length > 0 ? availableTasks.map((t) => (
+                   {isLoadingTasks ? (
+                       <div className="flex items-center justify-center p-2"><Loader2 className="h-4 w-4 animate-spin"/></div>
+                   ) : tasks.length > 0 ? tasks.map((t) => (
                     <SelectItem key={t.id} value={t.id!}>
                       {t.title}
                     </SelectItem>
@@ -189,13 +212,12 @@ export function TimesheetLogger({
                     </TableRow>
                 </TableHeader>
                 <TableBody>
-                    {timeLogs.length > 0 ? (
-                    timeLogs.map((log) => {
-                        const task = tasks.find((t) => t.id === log.taskId);
+                    {initialTimeLogs.length > 0 ? (
+                    initialTimeLogs.map((log) => {
                         const project = projects.find((p) => p.id === log.projectId);
                         return (
                         <TableRow key={log.id}>
-                            <TableCell className="font-medium">{task?.title || 'N/A'}</TableCell>
+                            <TableCell className="font-medium">{getTaskTitle(log.taskId)}</TableCell>
                             <TableCell>{project?.name || 'N/A'}</TableCell>
                             <TableCell className="text-right">{log.hours}</TableCell>
                             <TableCell>{log.date?.toDate && format(log.date.toDate(), 'PPP', { locale: es })}</TableCell>

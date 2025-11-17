@@ -3,7 +3,7 @@
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/use-auth';
-import { getProjects, getTasksForProjects, Project, Task, getTimeLogs, TimeLog } from '@/lib/firebase/firestore';
+import { getProjects, Project, getTimeLogs, TimeLog } from '@/lib/firebase/firestore';
 import { Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { TimesheetLogger } from './timesheet-logger';
@@ -12,7 +12,6 @@ export default function TimesheetPage() {
   const { user } = useAuth();
   const { toast } = useToast();
   const [projects, setProjects] = useState<Project[]>([]);
-  const [tasks, setTasks] = useState<Task[]>([]);
   const [timeLogs, setTimeLogs] = useState<TimeLog[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -21,18 +20,12 @@ export default function TimesheetPage() {
       const fetchData = async () => {
         setIsLoading(true);
         try {
-          const userProjects = await getProjects(user.uid);
+          const [userProjects, userTimeLogs] = await Promise.all([
+            getProjects(user.uid),
+            getTimeLogs(user.uid),
+          ]);
           setProjects(userProjects);
-          
-          if (userProjects.length > 0) {
-              const projectIds = userProjects.map(p => p.id!);
-              const [projectTasks, userTimeLogs] = await Promise.all([
-                  getTasksForProjects(projectIds),
-                  getTimeLogs(user.uid)
-              ]);
-              setTasks(projectTasks);
-              setTimeLogs(userTimeLogs);
-          }
+          setTimeLogs(userTimeLogs);
         } catch (error) {
           console.error('Error fetching data:', error);
           toast({
@@ -66,7 +59,6 @@ export default function TimesheetPage() {
       ) : (
         <TimesheetLogger
           projects={projects}
-          tasks={tasks}
           initialTimeLogs={timeLogs}
           onTimeLogCreated={handleTimeLogCreated}
         />
