@@ -31,15 +31,15 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { createBug, updateBugStatus, Bug, Project, BugPriority, BugStatus, BugSeverity, ProjectMember, getProjectMembers, updateBug } from '@/lib/firebase/firestore';
+import { createBug, updateBug, Bug, Project, BugPriority, BugStatus, BugSeverity, ProjectMember, getAllUsers, UserProfile } from '@/lib/firebase/firestore';
 import { useAuth } from '@/hooks/use-auth';
-import { Loader2, PlusCircle, Link as LinkIcon, ExternalLink, User as UserIcon } from 'lucide-react';
+import { Loader2, PlusCircle, Link as LinkIcon, ExternalLink } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
 import Image from 'next/image';
 import Link from 'next/link';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 
 const priorityBadges: Record<BugPriority, 'destructive' | 'secondary' | 'outline' | 'default'> = {
   critical: 'destructive',
@@ -80,7 +80,7 @@ export function BugTracker({
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false);
   const [selectedBug, setSelectedBug] = useState<Bug | null>(null);
-  const [projectMembers, setProjectMembers] = useState<ProjectMember[]>([]);
+  const [allUsers, setAllUsers] = useState<UserProfile[]>([]);
 
   // Form state
   const [title, setTitle] = useState('');
@@ -92,14 +92,22 @@ export function BugTracker({
   const [severity, setSeverity] = useState<BugSeverity>('medium');
 
   useEffect(() => {
-    if(selectedBug) {
-        const fetchMembers = async () => {
-            const members = await getProjectMembers(selectedBug.projectId);
-            setProjectMembers(members);
+    // Fetch all users once when the component mounts
+    const fetchAllSystemUsers = async () => {
+        try {
+            const users = await getAllUsers();
+            setAllUsers(users);
+        } catch (error) {
+            console.error("Failed to fetch all users:", error);
+            toast({
+                variant: 'destructive',
+                title: 'Error de Carga',
+                description: 'No se pudo cargar la lista completa de usuarios para la asignación.'
+            });
         }
-        fetchMembers();
-    }
-  }, [selectedBug]);
+    };
+    fetchAllSystemUsers();
+  }, [toast]);
 
   const resetForm = () => {
     setTitle('');
@@ -196,9 +204,7 @@ export function BugTracker({
 
   const getAssignee = (bug: Bug) => {
     if (!bug.assigneeId) return null;
-    // We might not have members for all projects loaded, so we look in all users
-    const allKnownMembers = projects.flatMap(p => p.members || []);
-    return allKnownMembers.find(m => m.userId === bug.assigneeId) || projectMembers.find(m => m.userId === bug.assigneeId);
+    return allUsers.find(u => u.id === bug.assigneeId);
   }
 
   const isImageUrl = (url: string) => {
@@ -371,7 +377,7 @@ export function BugTracker({
                       {assignee ? (
                          <div className="flex items-center gap-2">
                            <Avatar className="h-6 w-6">
-                             <AvatarFallback>{assignee.displayName.charAt(0)}</AvatarFallback>
+                             <AvatarFallback>{assignee.displayName?.charAt(0)}</AvatarFallback>
                            </Avatar>
                            <span className="text-sm">{assignee.displayName}</span>
                          </div>
@@ -474,9 +480,9 @@ export function BugTracker({
                         </SelectTrigger>
                         <SelectContent>
                             <SelectItem value="none">Sin asignar</SelectItem>
-                            {projectMembers.map((member) => (
-                                <SelectItem key={member.userId} value={member.userId}>
-                                    {member.displayName}
+                            {allUsers.map((u) => (
+                                <SelectItem key={u.id} value={u.id}>
+                                    {u.displayName || u.email}
                                 </SelectItem>
                             ))}
                         </SelectContent>
@@ -506,3 +512,5 @@ export function BugTracker({
     </div>
   );
 }
+
+    
