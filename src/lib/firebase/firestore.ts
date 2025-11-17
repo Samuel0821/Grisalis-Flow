@@ -81,6 +81,7 @@ export interface Bug extends DocumentData {
   priority: BugPriority;
   severity: BugSeverity;
   evidenceUrl?: string;
+  assigneeId?: string;
   reportedBy: string;
   createdAt: any;
   updatedAt: any;
@@ -713,6 +714,38 @@ export const getBugs = async (): Promise<Bug[]> => {
     throw new Error('No se pudieron obtener los bugs.');
   }
 };
+
+export const updateBug = async (
+  bugId: string,
+  bugData: Partial<Bug>,
+  user: { uid: string, displayName: string | null },
+  bugTitle?: string
+): Promise<void> => {
+  try {
+    const bugRef = doc(db, 'bugs', bugId);
+    await updateDoc(bugRef, {
+      ...bugData,
+      updatedAt: serverTimestamp(),
+    });
+    
+    const title = bugTitle || 'un bug';
+
+    if (bugData.assigneeId) {
+        await createAuditLog({
+            userId: user.uid,
+            userName: user.displayName || 'Anónimo',
+            action: `Asignó el bug "${title}"`,
+            entity: 'bug',
+            entityId: bugId,
+            details: { assigneeId: bugData.assigneeId }
+        });
+    }
+
+  } catch (error) {
+    console.error('Error al actualizar el bug: ', error);
+    throw new Error('No se pudo actualizar el bug.');
+  }
+}
 
 export const updateBugStatus = async (
   bugId: string,

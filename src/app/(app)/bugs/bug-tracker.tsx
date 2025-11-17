@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -31,14 +31,15 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { createBug, updateBugStatus, Bug, Project, BugPriority, BugStatus, BugSeverity } from '@/lib/firebase/firestore';
+import { createBug, updateBugStatus, Bug, Project, BugPriority, BugStatus, BugSeverity, ProjectMember, getProjectMembers, updateBug } from '@/lib/firebase/firestore';
 import { useAuth } from '@/hooks/use-auth';
-import { Loader2, PlusCircle, Link as LinkIcon, ExternalLink } from 'lucide-react';
+import { Loader2, PlusCircle, Link as LinkIcon, ExternalLink, User as UserIcon } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
 import Image from 'next/image';
 import Link from 'next/link';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
 const priorityBadges: Record<BugPriority, 'destructive' | 'secondary' | 'outline' | 'default'> = {
   critical: 'destructive',
@@ -79,7 +80,7 @@ export function BugTracker({
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false);
   const [selectedBug, setSelectedBug] = useState<Bug | null>(null);
-
+  const [projectMembers, setProjectMembers] = useState<ProjectMember[]>([]);
 
   // Form state
   const [title, setTitle] = useState('');
@@ -89,6 +90,16 @@ export function BugTracker({
   const [projectId, setProjectId] = useState('');
   const [priority, setPriority] = useState<BugPriority>('medium');
   const [severity, setSeverity] = useState<BugSeverity>('medium');
+
+  useEffect(() => {
+    if(selectedBug) {
+        const fetchMembers = async () => {
+            const members = await getProjectMembers(selectedBug.projectId);
+            setProjectMembers(members);
+        }
+        fetchMembers();
+    }
+  }, [selectedBug]);
 
   const resetForm = () => {
     setTitle('');
@@ -148,27 +159,47 @@ export function BugTracker({
 
   const handleStatusChange = async (newStatus: BugStatus) => {
     if (!selectedBug || !user) return;
+    handleFieldUpdate('status', newStatus);
+  };
+  
+  const handleAssigneeChange = async (newAssigneeId: string) => {
+    if (!selectedBug || !user) return;
+    const value = newAssigneeId === 'none' ? null : newAssigneeId;
+    handleFieldUpdate('assigneeId', value);
+  }
+
+  const handleFieldUpdate = async (field: keyof Bug, value: any) => {
+    if (!selectedBug || !user) return;
 
     const originalBugs = bugs;
-    const oldStatus = selectedBug.status;
-    const updatedBugs = bugs.map(b => b.id === selectedBug.id ? { ...b, status: newStatus } : b);
+    const oldBug = { ...selectedBug };
+
+    const updatedBug = { ...selectedBug, [field]: value };
+    const updatedBugs = bugs.map(b => b.id === selectedBug.id ? updatedBug : b);
     setBugs(updatedBugs);
-    setSelectedBug(prev => prev ? { ...prev, status: newStatus } : null);
+    setSelectedBug(updatedBug);
 
     try {
-      await updateBugStatus(selectedBug.id, selectedBug.title, newStatus, oldStatus, { uid: user.uid, displayName: user.displayName });
-      toast({ title: '¡Éxito!', description: 'Estado del bug actualizado.' });
+        await updateBug(selectedBug.id, { [field]: value }, {uid: user.uid, displayName: user.displayName}, selectedBug.title);
+        toast({ title: '¡Éxito!', description: 'El bug ha sido actualizado.' });
     } catch (error) {
-      console.error('Error updating bug status:', error);
-      setBugs(originalBugs);
-      setSelectedBug(prev => prev ? { ...prev, status: selectedBug.status } : null);
-      toast({
-        variant: 'destructive',
-        title: 'Error al actualizar estado',
-        description: 'No se pudo actualizar el estado del bug. Por favor, inténtalo de nuevo.',
-      });
+        console.error(`Error updating bug field ${field}:`, error);
+        setBugs(originalBugs);
+        setSelectedBug(oldBug);
+        toast({
+            variant: 'destructive',
+            title: 'Error al actualizar',
+            description: `No se pudo actualizar el campo. Por favor, inténtalo de nuevo.`,
+        });
     }
   };
+
+  const getAssignee = (bug: Bug) => {
+    if (!bug.assigneeId) return null;
+    // We might not have members for all projects loaded, so we look in all users
+    const allKnownMembers = projects.flatMap(p => p.members || []);
+    return allKnownMembers.find(m => m.userId === bug.assigneeId) || projectMembers.find(m => m.userId === bug.assigneeId);
+  }
 
   const isImageUrl = (url: string) => {
     return /\.(jpg|jpeg|png|gif|webp)$/.test(url);
@@ -323,7 +354,7 @@ export function BugTracker({
           <TableHeader>
             <TableRow>
               <TableHead>Título</TableHead>
-              <TableHead>Severidad</TableHead>
+              <TableHead>Asignado a</TableHead>
               <TableHead>Prioridad</TableHead>
               <TableHead>Estado</TableHead>
               <TableHead>Reportado</TableHead>
@@ -332,11 +363,21 @@ export function BugTracker({
           <TableBody>
             {bugs.length > 0 ? (
               bugs.map((bug) => {
+                const assignee = getAssignee(bug);
                 return (
                   <TableRow key={bug.id} onClick={() => handleBugClick(bug)} className="cursor-pointer">
                     <TableCell className="font-medium">{bug.title}</TableCell>
                     <TableCell>
-                      <Badge variant={severityBadges[bug.severity]} className="capitalize">{bug.severity === 'enhancement' ? 'Mejora' : bug.severity}</Badge>
+                      {assignee ? (
+                         <div className="flex items-center gap-2">
+                           <Avatar className="h-6 w-6">
+                             <AvatarFallback>{assignee.displayName.charAt(0)}</AvatarFallback>
+                           </Avatar>
+                           <span className="text-sm">{assignee.displayName}</span>
+                         </div>
+                       ) : (
+                         <span className="text-muted-foreground text-sm">Sin asignar</span>
+                       )}
                     </TableCell>
                     <TableCell>
                       <Badge variant={priorityBadges[bug.priority]} className="capitalize">{bug.priority}</Badge>
@@ -408,28 +449,44 @@ export function BugTracker({
                         )}
                     </div>
                 )}
+                
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <Label className="font-semibold text-foreground mb-1">Severidad</Label>
+                         <div>
+                           <Badge variant={severityBadges[selectedBug.severity]} className="capitalize text-sm">{selectedBug.severity === 'enhancement' ? 'Mejora' : selectedBug.severity}</Badge>
+                         </div>
+                      </div>
+                       <div>
+                        <Label className="font-semibold text-foreground mb-1">Prioridad</Label>
+                         <div>
+                           <Badge variant={priorityBadges[selectedBug.priority]} className="capitalize text-sm">{selectedBug.priority}</Badge>
+                         </div>
+                      </div>
+                   </div>
 
-                <div className="grid grid-cols-3 gap-4">
-                  <div>
-                    <Label className="font-semibold text-foreground mb-1">Proyecto</Label>
-                    <p className="text-sm text-muted-foreground">{projects.find(p => p.id === selectedBug.projectId)?.name || 'N/A'}</p>
-                  </div>
-                  <div>
-                    <Label className="font-semibold text-foreground mb-1">Severidad</Label>
-                     <div>
-                       <Badge variant={severityBadges[selectedBug.severity]} className="capitalize text-sm">{selectedBug.severity === 'enhancement' ? 'Mejora' : selectedBug.severity}</Badge>
-                     </div>
-                  </div>
+                    <div>
+                        <Label htmlFor="assignee-select" className="font-semibold text-foreground mb-1">Asignado a</Label>
+                        <Select onValueChange={handleAssigneeChange} value={selectedBug.assigneeId || 'none'}>
+                        <SelectTrigger id="assignee-select" className="w-full">
+                            <SelectValue placeholder="Selecciona un miembro" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="none">Sin asignar</SelectItem>
+                            {projectMembers.map((member) => (
+                                <SelectItem key={member.userId} value={member.userId}>
+                                    {member.displayName}
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                        </Select>
+                    </div>
+
                    <div>
-                    <Label className="font-semibold text-foreground mb-1">Prioridad</Label>
-                     <div>
-                       <Badge variant={priorityBadges[selectedBug.priority]} className="capitalize text-sm">{selectedBug.priority}</Badge>
-                     </div>
-                  </div>
-                   <div className="col-span-3">
                     <Label htmlFor="status-select" className="font-semibold text-foreground mb-1">Estado</Label>
                     <Select onValueChange={(v) => handleStatusChange(v as BugStatus)} value={selectedBug.status}>
-                      <SelectTrigger id="status-select" className="w-[180px]">
+                      <SelectTrigger id="status-select" className="w-full">
                         <SelectValue placeholder="Selecciona estado" />
                       </SelectTrigger>
                       <SelectContent>

@@ -290,6 +290,10 @@
           "description": "URL to an image or video showing the bug.",
           "format": "uri"
         },
+        "assigneeId": {
+          "type": "string",
+          "description": "Reference to User assigned to the bug. (Relationship: User 1:N Bug)"
+        },
         "reportedBy": {
             "type": "string",
             "description": "User ID of the user who reported the bug."
