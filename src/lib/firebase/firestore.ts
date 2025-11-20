@@ -282,7 +282,7 @@ export const createProject = async (
       details: projectData
   });
 
-  return { id: projectRef.id, ...projectData, createdAt: new Date(), updatedAt: new Date(), status: 'active' };
+  return { id: projectRef.id, name: projectData.name, createdBy: projectData.createdBy, ...projectData, createdAt: new Date(), updatedAt: new Date(), status: 'active' } as Project;
 };
 
 export const getProjects = async (userId?: string): Promise<Project[]> => {
